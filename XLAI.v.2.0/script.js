@@ -1,10 +1,5 @@
 // script.js
-// XL AI v3C + Home Screen + Live previews:
-// - Home screen with contacts list
-// - Chat screen (neon coach)
-// - Tone-aware AI suggestions
-// - Messaging API with DEMO AES-GCM encryption
-// - Home uses /api/last-messages for real previews
+// XL AI v3: Home + Contacts from backend + Neon messages + demo E2EE
 
 // === Grab elements from the page ===
 const homeScreen = document.getElementById("home-screen");
@@ -34,36 +29,28 @@ const clearSuggestionButton =
 // USERS / CONTACTS / CONVERSATIONS
 // ======================================================================
 
+// For now we pretend this is the logged-in user.
+// Later, when we add real auth, this will come from the backend.
 const currentUserId = "user_A";
 
-const contacts = [
-  {
-    id: "user_B",
-    name: "Alex",
-    status: "Online · using XL AI",
-  },
-  {
-    id: "user_C",
-    name: "Jordan",
-    status: "Last seen 2 hours ago",
-  },
-  {
-    id: "user_D",
-    name: "Taylor",
-    status: "Last seen yesterday",
-  },
-];
-
+let contacts = [];
 let activeContact = null;
 let activeConversationId = null;
 
-// Deterministic conversation id for a pair of users
-function getConversationIdForPair(userA, userB) {
-  const pair = [userA, userB].sort();
-  return `conv_${pair[0]}_${pair[1]}`;
+// Fetch contacts for current user from backend
+async function fetchContacts() {
+  const res = await fetch(
+    `/api/contacts?userId=${encodeURIComponent(currentUserId)}`
+  );
+  if (!res.ok) {
+    console.error("Failed to fetch contacts:", res.status);
+    return [];
+  }
+  const data = await res.json();
+  return data.contacts || [];
 }
 
-// Fetch last messages from server (for previews)
+// Fetch last messages (for previews)
 async function fetchLastMessages() {
   const res = await fetch("/api/last-messages");
   if (!res.ok) {
@@ -78,6 +65,15 @@ async function fetchLastMessages() {
 async function renderContactList() {
   contactListEl.innerHTML = "Loading conversations…";
 
+  try {
+    contacts = await fetchContacts();
+  } catch (err) {
+    console.error("Error fetching contacts:", err);
+    contactListEl.innerHTML =
+      "Could not load contacts. Please try again.";
+    return;
+  }
+
   let lastMessages = [];
   try {
     lastMessages = await fetchLastMessages();
@@ -85,15 +81,14 @@ async function renderContactList() {
     console.error("Error fetching last messages:", err);
   }
 
-  // Build a map convId -> last message (already encrypted)
   const lastByConv = new Map();
   for (const msg of lastMessages) {
-    lastByConv.set(msg.conversationId, msg);
+    lastByConv.set(msg.conversation_id || msg.conversationId, msg);
   }
 
   contactListEl.innerHTML = "";
 
-  for (const contact of contacts) {
+  contacts.forEach((contact) => {
     const item = document.createElement("div");
     item.classList.add("contact-item");
     item.dataset.contactId = contact.id;
@@ -107,7 +102,7 @@ async function renderContactList() {
 
     const statusEl = document.createElement("div");
     statusEl.classList.add("contact-status");
-    statusEl.textContent = contact.status;
+    statusEl.textContent = contact.status || "Using XL AI";
 
     nameRow.appendChild(nameEl);
     nameRow.appendChild(statusEl);
@@ -115,15 +110,13 @@ async function renderContactList() {
     const previewEl = document.createElement("div");
     previewEl.classList.add("contact-preview");
 
-    // Compute conversationId for this contact + current user
-    const convId = getConversationIdForPair(currentUserId, contact.id);
+    const convId = contact.conversationId;
     const lastMsg = lastByConv.get(convId);
 
     if (!lastMsg) {
       previewEl.textContent =
         "No recent messages. Tap to start with XL AI support.";
     } else {
-      // Decrypt last ciphertext to show a short preview
       decryptMessage(lastMsg.ciphertext)
         .then((plain) => {
           const shortened =
@@ -140,23 +133,17 @@ async function renderContactList() {
     item.appendChild(previewEl);
 
     item.addEventListener("click", () => {
-      openConversation(contact.id);
+      openConversation(contact);
     });
 
     contactListEl.appendChild(item);
-  }
+  });
 }
 
-// Switch to chat screen for selected contact
-async function openConversation(contactId) {
-  const contact = contacts.find((c) => c.id === contactId);
-  if (!contact) return;
-
+// Open a conversation screen
+async function openConversation(contact) {
   activeContact = contact;
-  activeConversationId = getConversationIdForPair(
-    currentUserId,
-    contact.id
-  );
+  activeConversationId = contact.conversationId;
 
   chatContactNameEl.textContent = contact.name;
   chatContactStatusEl.textContent = "Private coaching with XL AI";
@@ -188,7 +175,6 @@ backToHomeButton.addEventListener("click", async () => {
   chatBox.innerHTML = "";
   clearSuggestion();
 
-  // Refresh previews when you go back
   try {
     await renderContactList();
   } catch (err) {
@@ -279,10 +265,7 @@ async function encryptMessage(plainText) {
     const data = textEncoder.encode(plainText);
 
     const encryptedBuffer = await window.crypto.subtle.encrypt(
-      {
-        name: "AES-GCM",
-        iv,
-      },
+      { name: "AES-GCM", iv },
       key,
       data
     );
@@ -314,10 +297,7 @@ async function decryptMessage(ciphertextBase64) {
     const ciphertextBytes = combined.slice(12);
 
     const decryptedBuffer = await window.crypto.subtle.decrypt(
-      {
-        name: "AES-GCM",
-        iv,
-      },
+      { name: "AES-GCM", iv },
       key,
       ciphertextBytes
     );
@@ -352,9 +332,7 @@ function addMessage(text, senderId) {
 async function getRephraseFromServer(original, tone) {
   const response = await fetch("/api/rephrase", {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ text: original, tone }),
   });
 
@@ -382,7 +360,7 @@ function clearSuggestion() {
 }
 
 // ======================================================================
-// MESSAGE API HELPERS (per active conversation)
+// MESSAGE API HELPERS
 // ======================================================================
 
 async function sendMessageToServer(plainText) {
@@ -435,7 +413,7 @@ async function loadConversation() {
 
   for (const msg of data.messages) {
     const sender =
-      msg.senderId === currentUserId ? currentUserId : "ai";
+      msg.sender_id === currentUserId ? currentUserId : "ai";
 
     const plainText = await decryptMessage(msg.ciphertext);
     addMessage(plainText, sender);

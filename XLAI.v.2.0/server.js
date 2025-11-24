@@ -1,43 +1,162 @@
 // server.js
 // XL AI v2.0 backend with:
-// - Tone-aware AI rephrase endpoint
-// - Messaging API with 24h TTL on messages
-// - "Last message per conversation" endpoint for Home screen
+// - Tone-aware AI rephrase endpoint (OpenAI)
+// - Messaging API backed by Neon Postgres
+// - 24h TTL (messages auto-expire)
+// - Last-message previews for the Home screen
+// - Users + Conversations + /api/contacts for home list
 
 const express = require("express");
 const cors = require("cors");
 const OpenAI = require("openai");
+const { Pool } = require("pg");
 require("dotenv").config();
 
 const app = express();
 
+// ---------- Middleware ----------
 app.use(cors());
 app.use(express.json());
-app.use(express.static(__dirname)); // serve index.html, script.js, style.css
+// Serve index.html, script.js, style.css from this folder
+app.use(express.static(__dirname));
 
-// OpenAI client (used only for suggestions)
+// ---------- OpenAI Client ----------
+if (!process.env.OPENAI_API_KEY) {
+  console.warn(
+    "WARNING: OPENAI_API_KEY is not set. /api/rephrase will fail until you add it to .env."
+  );
+}
 const client = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
 
-// TEMP in-memory message store
-let messages = [];
-
-// TTL in milliseconds (24 hours)
-const MESSAGE_TTL_MS = 24 * 60 * 60 * 1000;
-
-// Utility: remove messages older than 24h
-function pruneExpiredMessages() {
-  const now = Date.now();
-  messages = messages.filter((m) => {
-    const created = new Date(m.createdAt).getTime();
-    return now - created < MESSAGE_TTL_MS;
-  });
+// ---------- Neon Postgres Setup ----------
+if (!process.env.DATABASE_URL) {
+  console.warn(
+    "WARNING: DATABASE_URL is not set. Neon DB will not work until you add it to .env."
+  );
 }
 
-// Health check
-app.get("/api/health", (req, res) => {
-  res.json({ ok: true });
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+});
+
+// TTL = 24h
+const TTL_INTERVAL_SQL = "now() - interval '24 hours'";
+
+// ---------- DB INIT + SEED DEMO DATA ----------
+async function initDb() {
+  // gen_random_uuid() lives in pgcrypto
+  await pool.query(`CREATE EXTENSION IF NOT EXISTS "pgcrypto";`);
+
+  // Users table (simple demo users, no auth yet)
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS users (
+      id text PRIMARY KEY,
+      display_name text NOT NULL
+    );
+  `);
+
+  // Conversations (1:1 for now)
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS conversations (
+      id text PRIMARY KEY,
+      user_a text NOT NULL REFERENCES users(id),
+      user_b text NOT NULL REFERENCES users(id)
+    );
+  `);
+
+  // Messages table
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS messages (
+      id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+      conversation_id text NOT NULL REFERENCES conversations(id),
+      sender_id text NOT NULL REFERENCES users(id),
+      recipient_id text NOT NULL REFERENCES users(id),
+      ciphertext text NOT NULL,
+      created_at timestamptz NOT NULL DEFAULT now()
+    );
+  `);
+
+  // ---- Seed demo users ----
+  const demoUsers = [
+    { id: "user_A", name: "You" },
+    { id: "user_B", name: "Alex" },
+    { id: "user_C", name: "Jordan" },
+    { id: "user_D", name: "Taylor" },
+  ];
+
+  for (const u of demoUsers) {
+    await pool.query(
+      `
+      INSERT INTO users (id, display_name)
+      VALUES ($1, $2)
+      ON CONFLICT (id) DO NOTHING;
+    `,
+      [u.id, u.name]
+    );
+  }
+
+  // ---- Seed demo conversations (You ↔ others) ----
+  const demoConversations = [
+    {
+      id: "conv_user_A_user_B",
+      a: "user_A",
+      b: "user_B",
+    },
+    {
+      id: "conv_user_A_user_C",
+      a: "user_A",
+      b: "user_C",
+    },
+    {
+      id: "conv_user_A_user_D",
+      a: "user_A",
+      b: "user_D",
+    },
+  ];
+
+  for (const c of demoConversations) {
+    await pool.query(
+      `
+      INSERT INTO conversations (id, user_a, user_b)
+      VALUES ($1, $2, $3)
+      ON CONFLICT (id) DO NOTHING;
+    `,
+      [c.id, c.a, c.b]
+    );
+  }
+
+  console.log("✅ Neon DB is ready (users, conversations, messages).");
+}
+
+// Helper: prune expired messages
+async function pruneExpiredMessages() {
+  try {
+    await pool.query(
+      `
+      DELETE FROM messages
+      WHERE created_at <= ${TTL_INTERVAL_SQL};
+    `
+    );
+  } catch (err) {
+    console.error("Error pruning expired messages:", err);
+  }
+}
+
+initDb().catch((err) => {
+  console.error("❌ Error initializing database:", err);
+});
+
+// ---------- Health Check ----------
+app.get("/api/health", async (req, res) => {
+  try {
+    await pool.query("SELECT 1");
+    res.json({ ok: true, db: true });
+  } catch (err) {
+    console.error("Health check DB error:", err);
+    res.status(500).json({ ok: false, db: false });
+  }
 });
 
 // ---------- AI REPHRASE ENDPOINT ----------
@@ -121,12 +240,65 @@ RULES:
   }
 });
 
-// ---------- MESSAGING API (with TTL) ----------
+// ---------- CONTACT LIST API ----------
+// GET /api/contacts?userId=user_A
+app.get("/api/contacts", async (req, res) => {
+  const userId = req.query.userId;
+  if (!userId) {
+    return res.status(400).json({ error: "userId query param is required." });
+  }
 
-// POST /api/messages  -> store ciphertext for a conversation
-app.post("/api/messages", (req, res) => {
-  pruneExpiredMessages();
+  try {
+    const result = await pool.query(
+      `
+      SELECT
+        CASE
+          WHEN c.user_a = $1 THEN c.user_b
+          ELSE c.user_a
+        END AS contact_id,
+        u.display_name AS contact_name,
+        c.id AS conversation_id
+      FROM conversations c
+      JOIN users u
+        ON u.id = CASE
+          WHEN c.user_a = $1 THEN c.user_b
+          ELSE c.user_a
+        END
+      WHERE c.user_a = $1 OR c.user_b = $1;
+    `,
+      [userId]
+    );
 
+    // add fake status labels for now
+    const contacts = result.rows.map((row) => {
+      let status = "Using XL AI";
+      if (row.contact_id === "user_B")
+        status = "Online · using XL AI";
+      else if (row.contact_id === "user_C")
+        status = "Last seen 2 hours ago";
+      else if (row.contact_id === "user_D")
+        status = "Last seen yesterday";
+
+      return {
+        id: row.contact_id,
+        name: row.contact_name,
+        status,
+        conversationId: row.conversation_id,
+      };
+    });
+
+    res.json({ contacts });
+  } catch (err) {
+    console.error("Error fetching contacts:", err);
+    res.status(500).json({ error: "Failed to load contacts." });
+  }
+});
+
+// ---------- MESSAGING API (Neon DB) ----------
+
+// POST /api/messages
+// body: { conversationId, senderId, recipientId, ciphertext }
+app.post("/api/messages", async (req, res) => {
   const { conversationId, senderId, recipientId, ciphertext } = req.body;
 
   if (!conversationId || !senderId || !recipientId || !ciphertext) {
@@ -135,57 +307,79 @@ app.post("/api/messages", (req, res) => {
       .json({ error: "Missing required message fields." });
   }
 
-  const message = {
-    id: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
-    conversationId,
-    senderId,
-    recipientId,
-    ciphertext, // encrypted (or demo-encrypted) string
-    createdAt: new Date().toISOString(),
-  };
+  try {
+    // Clean up expired messages (best-effort)
+    await pruneExpiredMessages();
 
-  messages.push(message);
-  res.status(201).json({ message });
+    const result = await pool.query(
+      `
+      INSERT INTO messages (conversation_id, sender_id, recipient_id, ciphertext)
+      VALUES ($1, $2, $3, $4)
+      RETURNING id, conversation_id, sender_id, recipient_id, ciphertext, created_at;
+    `,
+      [conversationId, senderId, recipientId, ciphertext]
+    );
+
+    res.status(201).json({ message: result.rows[0] });
+  } catch (err) {
+    console.error("Error inserting message:", err);
+    res.status(500).json({ error: "Failed to save message." });
+  }
 });
 
-// GET /api/messages?conversationId=...  -> all messages for that conversation (non-expired)
-app.get("/api/messages", (req, res) => {
-  pruneExpiredMessages();
-
+// GET /api/messages?conversationId=...
+// Returns all non-expired messages for that conversation
+app.get("/api/messages", async (req, res) => {
   const { conversationId } = req.query;
   if (!conversationId) {
-    return res.status(400).json({ error: "conversationId is required" });
+    return res
+      .status(400)
+      .json({ error: "conversationId query param is required." });
   }
 
-  const convoMessages = messages
-    .filter((m) => m.conversationId === conversationId)
-    .sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
+  try {
+    const result = await pool.query(
+      `
+      SELECT id, conversation_id, sender_id, recipient_id, ciphertext, created_at
+      FROM messages
+      WHERE conversation_id = $1
+        AND created_at > ${TTL_INTERVAL_SQL}
+      ORDER BY created_at ASC;
+    `,
+      [conversationId]
+    );
 
-  res.json({ messages: convoMessages });
-});
-
-// GET /api/last-messages  ->  last non-expired message per conversation
-app.get("/api/last-messages", (req, res) => {
-  pruneExpiredMessages();
-
-  // Group by conversationId, pick the latest
-  const byConversation = new Map();
-
-  for (const m of messages) {
-    const existing = byConversation.get(m.conversationId);
-    if (!existing) {
-      byConversation.set(m.conversationId, m);
-    } else {
-      if (new Date(m.createdAt) > new Date(existing.createdAt)) {
-        byConversation.set(m.conversationId, m);
-      }
-    }
+    res.json({ messages: result.rows });
+  } catch (err) {
+    console.error("Error fetching messages:", err);
+    res.status(500).json({ error: "Failed to load messages." });
   }
-
-  const lastMessages = Array.from(byConversation.values());
-  res.json({ lastMessages });
 });
 
+// GET /api/last-messages
+// Returns the latest non-expired message per conversation (for Home previews)
+app.get("/api/last-messages", async (req, res) => {
+  try {
+    const result = await pool.query(`
+      SELECT DISTINCT ON (conversation_id)
+             conversation_id,
+             sender_id,
+             recipient_id,
+             ciphertext,
+             created_at
+      FROM messages
+      WHERE created_at > ${TTL_INTERVAL_SQL}
+      ORDER BY conversation_id, created_at DESC;
+    `);
+
+    res.json({ lastMessages: result.rows });
+  } catch (err) {
+    console.error("Error fetching last messages:", err);
+    res.status(500).json({ error: "Failed to load last messages." });
+  }
+});
+
+// ---------- Start server ----------
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log(`XL AI server listening on port ${PORT}`);
