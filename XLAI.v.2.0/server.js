@@ -1,15 +1,16 @@
 // server.js
 // XL AI v2.0 backend with:
 // - Tone-aware AI rephrase endpoint (OpenAI)
-// - Messaging API backed by Neon Postgres
-// - 24h TTL (messages auto-expire)
-// - Last-message previews for the Home screen
-// - Users + Conversations + /api/contacts for home list
+// - Users + Conversations + Contacts from Neon Postgres
+// - Messages stored with demo encryption + 24h TTL
+// - Auth Phase 1: Signup + Login with bcrypt + JWT (backend only)
 
 const express = require("express");
 const cors = require("cors");
 const OpenAI = require("openai");
 const { Pool } = require("pg");
+const bcrypt = require("bcryptjs");
+const jwt = require("jsonwebtoken");
 require("dotenv").config();
 
 const app = express();
@@ -17,8 +18,11 @@ const app = express();
 // ---------- Middleware ----------
 app.use(cors());
 app.use(express.json());
-// Serve index.html, script.js, style.css from this folder
-app.use(express.static(__dirname));
+app.use(express.static(__dirname)); // serve index.html, script.js, style.css
+
+// ---------- Config ----------
+const JWT_SECRET = process.env.JWT_SECRET || "xlai-dev-secret";
+const TTL_INTERVAL_SQL = "now() - interval '24 hours'";
 
 // ---------- OpenAI Client ----------
 if (!process.env.OPENAI_API_KEY) {
@@ -41,23 +45,22 @@ const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
 });
 
-// TTL = 24h
-const TTL_INTERVAL_SQL = "now() - interval '24 hours'";
-
 // ---------- DB INIT + SEED DEMO DATA ----------
 async function initDb() {
-  // gen_random_uuid() lives in pgcrypto
+  // UUID helper
   await pool.query(`CREATE EXTENSION IF NOT EXISTS "pgcrypto";`);
 
-  // Users table (simple demo users, no auth yet)
+  // Users table
   await pool.query(`
     CREATE TABLE IF NOT EXISTS users (
       id text PRIMARY KEY,
-      display_name text NOT NULL
+      display_name text NOT NULL,
+      email text UNIQUE,
+      password_hash text
     );
   `);
 
-  // Conversations (1:1 for now)
+  // Conversations table (1:1)
   await pool.query(`
     CREATE TABLE IF NOT EXISTS conversations (
       id text PRIMARY KEY,
@@ -78,42 +81,30 @@ async function initDb() {
     );
   `);
 
-  // ---- Seed demo users ----
+  // ---- Seed demo users (IDs match what front-end uses now) ----
   const demoUsers = [
-    { id: "user_A", name: "You" },
-    { id: "user_B", name: "Alex" },
-    { id: "user_C", name: "Jordan" },
-    { id: "user_D", name: "Taylor" },
+    { id: "user_A", name: "You", email: "you@example.com" },
+    { id: "user_B", name: "Alex", email: "alex@example.com" },
+    { id: "user_C", name: "Jordan", email: "jordan@example.com" },
+    { id: "user_D", name: "Taylor", email: "taylor@example.com" },
   ];
 
   for (const u of demoUsers) {
     await pool.query(
       `
-      INSERT INTO users (id, display_name)
-      VALUES ($1, $2)
+      INSERT INTO users (id, display_name, email)
+      VALUES ($1, $2, $3)
       ON CONFLICT (id) DO NOTHING;
     `,
-      [u.id, u.name]
+      [u.id, u.name, u.email]
     );
   }
 
   // ---- Seed demo conversations (You ↔ others) ----
   const demoConversations = [
-    {
-      id: "conv_user_A_user_B",
-      a: "user_A",
-      b: "user_B",
-    },
-    {
-      id: "conv_user_A_user_C",
-      a: "user_A",
-      b: "user_C",
-    },
-    {
-      id: "conv_user_A_user_D",
-      a: "user_A",
-      b: "user_D",
-    },
+    { id: "conv_user_A_user_B", a: "user_A", b: "user_B" },
+    { id: "conv_user_A_user_C", a: "user_A", b: "user_C" },
+    { id: "conv_user_A_user_D", a: "user_A", b: "user_D" },
   ];
 
   for (const c of demoConversations) {
@@ -159,7 +150,133 @@ app.get("/api/health", async (req, res) => {
   }
 });
 
-// ---------- AI REPHRASE ENDPOINT ----------
+// ======================================================================
+// AUTH PHASE 1: SIGNUP + LOGIN (BACKEND ONLY)
+// ======================================================================
+
+// POST /api/signup
+// body: { email, password, displayName }
+// Creates a new user with a random id (for future real users)
+app.post("/api/signup", async (req, res) => {
+  const { email, password, displayName } = req.body;
+
+  if (!email || !password || !displayName) {
+    return res
+      .status(400)
+      .json({ error: "email, password, and displayName are required." });
+  }
+
+  try {
+    const hash = await bcrypt.hash(password, 12);
+    const userId = "user_" + Date.now().toString(36); // simple id for now
+
+    const result = await pool.query(
+      `
+      INSERT INTO users (id, display_name, email, password_hash)
+      VALUES ($1, $2, $3, $4)
+      RETURNING id, display_name, email;
+    `,
+      [userId, displayName, email.toLowerCase(), hash]
+    );
+
+    const user = result.rows[0];
+    const token = jwt.sign({ userId: user.id }, JWT_SECRET, {
+      expiresIn: "7d",
+    });
+
+    res.status(201).json({
+      token,
+      user: {
+        id: user.id,
+        displayName: user.display_name,
+        email: user.email,
+      },
+    });
+  } catch (err) {
+    console.error("Signup error:", err);
+    if (err.code === "23505") {
+      // unique_violation on email
+      return res.status(409).json({ error: "Email already in use." });
+    }
+    res.status(500).json({ error: "Signup failed." });
+  }
+});
+
+// POST /api/login
+// body: { email, password }
+app.post("/api/login", async (req, res) => {
+  const { email, password } = req.body;
+
+  if (!email || !password) {
+    return res.status(400).json({ error: "email and password required." });
+  }
+
+  try {
+    const result = await pool.query(
+      `
+      SELECT id, display_name, email, password_hash
+      FROM users
+      WHERE email = $1;
+    `,
+      [email.toLowerCase()]
+    );
+
+    if (result.rowCount === 0) {
+      return res.status(401).json({ error: "Invalid credentials." });
+    }
+
+    const user = result.rows[0];
+    if (!user.password_hash) {
+      return res.status(401).json({ error: "Invalid credentials." });
+    }
+
+    const ok = await bcrypt.compare(password, user.password_hash);
+    if (!ok) {
+      return res.status(401).json({ error: "Invalid credentials." });
+    }
+
+    const token = jwt.sign({ userId: user.id }, JWT_SECRET, {
+      expiresIn: "7d",
+    });
+
+    res.json({
+      token,
+      user: {
+        id: user.id,
+        displayName: user.display_name,
+        email: user.email,
+      },
+    });
+  } catch (err) {
+    console.error("Login error:", err);
+    res.status(500).json({ error: "Login failed." });
+  }
+});
+
+// (We will plug this middleware into protected routes in a later phase)
+function authMiddleware(req, res, next) {
+  const authHeader = req.headers.authorization || "";
+  const token = authHeader.startsWith("Bearer ")
+    ? authHeader.slice(7)
+    : null;
+
+  if (!token) {
+    return res.status(401).json({ error: "Missing auth token." });
+  }
+
+  try {
+    const payload = jwt.verify(token, JWT_SECRET);
+    req.userId = payload.userId;
+    next();
+  } catch (err) {
+    return res.status(401).json({ error: "Invalid token." });
+  }
+}
+
+// ======================================================================
+// AI REPHRASE ENDPOINT
+// ======================================================================
+
 app.post("/api/rephrase", async (req, res) => {
   const { text, tone } = req.body;
 
@@ -240,8 +357,12 @@ RULES:
   }
 });
 
-// ---------- CONTACT LIST API ----------
-// GET /api/contacts?userId=user_A
+// ======================================================================
+// CONTACT LIST API
+// ======================================================================
+
+// GET /api/contacts?userId=user_A   (for now)
+// Later this will use req.userId from authMiddleware.
 app.get("/api/contacts", async (req, res) => {
   const userId = req.query.userId;
   if (!userId) {
@@ -269,7 +390,6 @@ app.get("/api/contacts", async (req, res) => {
       [userId]
     );
 
-    // add fake status labels for now
     const contacts = result.rows.map((row) => {
       let status = "Using XL AI";
       if (row.contact_id === "user_B")
@@ -294,7 +414,9 @@ app.get("/api/contacts", async (req, res) => {
   }
 });
 
-// ---------- MESSAGING API (Neon DB) ----------
+// ======================================================================
+// MESSAGING API (Neon DB)
+// ======================================================================
 
 // POST /api/messages
 // body: { conversationId, senderId, recipientId, ciphertext }
@@ -308,7 +430,6 @@ app.post("/api/messages", async (req, res) => {
   }
 
   try {
-    // Clean up expired messages (best-effort)
     await pruneExpiredMessages();
 
     const result = await pool.query(
@@ -328,7 +449,6 @@ app.post("/api/messages", async (req, res) => {
 });
 
 // GET /api/messages?conversationId=...
-// Returns all non-expired messages for that conversation
 app.get("/api/messages", async (req, res) => {
   const { conversationId } = req.query;
   if (!conversationId) {
@@ -356,8 +476,7 @@ app.get("/api/messages", async (req, res) => {
   }
 });
 
-// GET /api/last-messages
-// Returns the latest non-expired message per conversation (for Home previews)
+// GET /api/last-messages  (for previews)
 app.get("/api/last-messages", async (req, res) => {
   try {
     const result = await pool.query(`
