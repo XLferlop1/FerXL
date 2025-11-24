@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>XL AI – Chat</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <!-- CHAT SCREEN -->
+    <div class="app-shell chat-shell">
+      <header class="app-header">
+        <a
+          href="index.html"
+          class="back-button"
+          aria-label="Back to conversations"
+        >
+          ←
+        </a>
+
+        <div class="chat-header-info">
+          <div id="chat-contact-name" class="chat-contact-name">
+            XL AI Coach
+          </div>
+          <div id="chat-contact-status" class="chat-contact-status">
+            Loading conversation…
+          </div>
+        </div>
+
+        <div class="status-pill">Private · 24h delete</div>
+      </header>
+
+      <main class="chat-panel">
+        <div id="chat-box" class="chat-box">
+          <!-- Messages will be rendered here by chat.js -->
+        </div>
+      </main>
+
+      <section class="input-panel">
+        <label class="input-label" for="message-input">
+          <span class="label-title">Your message</span>
+          <span class="label-sub">
+            Type what you REALLY want to say…
+          </span>
+        </label>
+
+        <textarea
+          id="message-input"
+          class="message-input"
+          rows="3"
+          placeholder="Type what you REALLY want to say…"
+        ></textarea>
+
+        <div class="action-row">
+          <button id="send-button" class="btn primary" type="button">
+            Send as-is
+          </button>
+
+          <div class="tone-group">
+            <button
+              class="btn secondary tone-button"
+              data-tone="calm"
+              type="button"
+            >
+              Calm
+            </button>
+            <button
+              class="btn secondary tone-button"
+              data-tone="professional"
+              type="button"
+            >
+              Professional
+            </button>
+            <button
+              class="btn secondary tone-button"
+              data-tone="lowkey"
+              type="button"
+            >
+              Low-key
+            </button>
+          </div>
+        </div>
+
+        <!-- XL AI suggestion box -->
+        <div id="suggestion-panel" class="suggestion-panel">
+          <div class="suggestion-header">
+            <span
+              id="suggestion-tone-label"
+              class="suggestion-label"
+            >
+              Suggested version
+            </span>
+            <span class="suggestion-hint">
+              Tap “Use suggestion” to replace your text.
+            </span>
+          </div>
+
+          <p id="suggestion-text" class="suggestion-text">
+            AI suggestions will appear here after you pick Calm /
+            Professional / Low-key.
+          </p>
+
+          <div class="suggestion-actions">
+            <button
+              id="apply-suggestion"
+              class="btn secondary small"
+              type="button"
+            >
+              Use suggestion
+            </button>
+            <button
+              id="clear-suggestion"
+              class="btn ghost small"
+              type="button"
+            >
+              Clear
+            </button>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <script src="chat.js"></script>
+  </body>
+</html>

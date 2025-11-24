@@ -1,21 +1,15 @@
-// script.js
-// XL AI v3: Home + Contacts from backend + Neon messages + demo E2EE
+// chat.js
+// XL AI Chat Page: loads one conversation, handles messages + AI rephrase
 
-// === Grab elements from the page ===
-const homeScreen = document.getElementById("home-screen");
-const chatScreen = document.getElementById("chat-screen");
-const contactListEl = document.getElementById("contact-list");
-const backToHomeButton = document.getElementById("back-to-home");
-const chatContactNameEl = document.getElementById("chat-contact-name");
-const chatContactStatusEl =
-  document.getElementById("chat-contact-status");
-
+// ---- DOM elements ----
 const chatBox = document.getElementById("chat-box");
+const chatContactNameEl = document.getElementById("chat-contact-name");
+const chatContactStatusEl = document.getElementById("chat-contact-status");
+
 const messageInput = document.getElementById("message-input");
 const sendButton = document.getElementById("send-button");
 const toneButtons = document.querySelectorAll(".tone-button");
 
-// Suggestion panel elements
 const suggestionText = document.getElementById("suggestion-text");
 const suggestionToneLabel = document.getElementById(
   "suggestion-tone-label"
@@ -25,165 +19,25 @@ const applySuggestionButton =
 const clearSuggestionButton =
   document.getElementById("clear-suggestion");
 
-// ======================================================================
-// USERS / CONTACTS / CONVERSATIONS
-// ======================================================================
+// ---- Conversation context ----
+const currentUserId = "user_A"; // For now, same demo user
 
-// For now we pretend this is the logged-in user.
-// Later, when we add real auth, this will come from the backend.
-const currentUserId = "user_A";
+const params = new URLSearchParams(window.location.search);
+const activeConversationId = params.get("conversationId");
+const activeContactId = params.get("contactId");
+const activeContactName = params.get("name") || "XL AI Contact";
 
-let contacts = [];
-let activeContact = null;
-let activeConversationId = null;
-
-// Fetch contacts for current user from backend
-async function fetchContacts() {
-  const res = await fetch(
-    `/api/contacts?userId=${encodeURIComponent(currentUserId)}`
-  );
-  if (!res.ok) {
-    console.error("Failed to fetch contacts:", res.status);
-    return [];
-  }
-  const data = await res.json();
-  return data.contacts || [];
+if (!activeConversationId || !activeContactId) {
+  chatContactStatusEl.textContent =
+    "Missing conversation info. Go back and open from Home.";
+} else {
+  chatContactNameEl.textContent = activeContactName;
+  chatContactStatusEl.textContent =
+    "Private coaching with XL AI · messages auto-delete after 24h";
 }
-
-// Fetch last messages (for previews)
-async function fetchLastMessages() {
-  const res = await fetch("/api/last-messages");
-  if (!res.ok) {
-    console.error("Failed to load last messages:", res.status);
-    return [];
-  }
-  const data = await res.json();
-  return data.lastMessages || [];
-}
-
-// Render contact cards with live preview
-async function renderContactList() {
-  contactListEl.innerHTML = "Loading conversations…";
-
-  try {
-    contacts = await fetchContacts();
-  } catch (err) {
-    console.error("Error fetching contacts:", err);
-    contactListEl.innerHTML =
-      "Could not load contacts. Please try again.";
-    return;
-  }
-
-  let lastMessages = [];
-  try {
-    lastMessages = await fetchLastMessages();
-  } catch (err) {
-    console.error("Error fetching last messages:", err);
-  }
-
-  const lastByConv = new Map();
-  for (const msg of lastMessages) {
-    lastByConv.set(msg.conversation_id || msg.conversationId, msg);
-  }
-
-  contactListEl.innerHTML = "";
-
-  contacts.forEach((contact) => {
-    const item = document.createElement("div");
-    item.classList.add("contact-item");
-    item.dataset.contactId = contact.id;
-
-    const nameRow = document.createElement("div");
-    nameRow.classList.add("contact-name-row");
-
-    const nameEl = document.createElement("div");
-    nameEl.classList.add("contact-name");
-    nameEl.textContent = contact.name;
-
-    const statusEl = document.createElement("div");
-    statusEl.classList.add("contact-status");
-    statusEl.textContent = contact.status || "Using XL AI";
-
-    nameRow.appendChild(nameEl);
-    nameRow.appendChild(statusEl);
-
-    const previewEl = document.createElement("div");
-    previewEl.classList.add("contact-preview");
-
-    const convId = contact.conversationId;
-    const lastMsg = lastByConv.get(convId);
-
-    if (!lastMsg) {
-      previewEl.textContent =
-        "No recent messages. Tap to start with XL AI support.";
-    } else {
-      decryptMessage(lastMsg.ciphertext)
-        .then((plain) => {
-          const shortened =
-            plain.length > 70 ? plain.slice(0, 67) + "…" : plain;
-          previewEl.textContent = shortened;
-        })
-        .catch((err) => {
-          console.error("Preview decrypt error:", err);
-          previewEl.textContent = "[unable to decrypt preview]";
-        });
-    }
-
-    item.appendChild(nameRow);
-    item.appendChild(previewEl);
-
-    item.addEventListener("click", () => {
-      openConversation(contact);
-    });
-
-    contactListEl.appendChild(item);
-  });
-}
-
-// Open a conversation screen
-async function openConversation(contact) {
-  activeContact = contact;
-  activeConversationId = contact.conversationId;
-
-  chatContactNameEl.textContent = contact.name;
-  chatContactStatusEl.textContent = "Private coaching with XL AI";
-
-  chatBox.innerHTML = "";
-  addMessage(
-    "Hey, I’m your XL AI coach. Type what you want to say to this person, then pick a tone for a calmer, more empathetic version.",
-    "ai"
-  );
-
-  homeScreen.classList.add("hidden");
-  chatScreen.classList.remove("hidden");
-
-  try {
-    await loadConversation();
-  } catch (err) {
-    console.error("Failed to load conversation:", err);
-  }
-
-  messageInput.focus();
-}
-
-// Back to home
-backToHomeButton.addEventListener("click", async () => {
-  chatScreen.classList.add("hidden");
-  homeScreen.classList.remove("hidden");
-  activeContact = null;
-  activeConversationId = null;
-  chatBox.innerHTML = "";
-  clearSuggestion();
-
-  try {
-    await renderContactList();
-  } catch (err) {
-    console.error("Error re-rendering contact list:", err);
-  }
-});
 
 // ======================================================================
-// DEMO E2EE LAYER (AES-GCM + PBKDF2)
+// DEMO E2EE LAYER (same as contacts, but used for send + receive here)
 // ======================================================================
 
 const DEMO_PASSPHRASE = "xlai-demo-passphrase-v1";
@@ -214,7 +68,7 @@ let demoKeyPromise = null;
 
 async function getDemoAesKey() {
   if (!window.crypto || !window.crypto.subtle) {
-    console.warn("Web Crypto not available; skipping demo encryption.");
+    console.warn("Web Crypto not available; using plaintext (demo).");
     return null;
   }
 
@@ -253,7 +107,7 @@ async function getDemoAesKey() {
 
 async function encryptMessage(plainText) {
   if (!window.crypto || !window.crypto.subtle) {
-    console.warn("No Web Crypto, returning plaintext (demo mode).");
+    console.warn("No Web Crypto, sending plaintext (demo).");
     return plainText;
   }
 
@@ -284,7 +138,6 @@ async function encryptMessage(plainText) {
 
 async function decryptMessage(ciphertextBase64) {
   if (!window.crypto || !window.crypto.subtle) {
-    console.warn("No Web Crypto, returning ciphertext as-is (demo).");
     return ciphertextBase64;
   }
 
@@ -310,7 +163,7 @@ async function decryptMessage(ciphertextBase64) {
 }
 
 // ======================================================================
-// UI & API HELPERS
+// UI HELPERS
 // ======================================================================
 
 function addMessage(text, senderId) {
@@ -328,6 +181,22 @@ function addMessage(text, senderId) {
 
   chatBox.scrollTop = chatBox.scrollHeight;
 }
+
+function showSuggestion(text, toneLabel) {
+  suggestionText.textContent = text;
+  suggestionToneLabel.textContent =
+    toneLabel || "Suggested version";
+}
+
+function clearSuggestion() {
+  suggestionText.textContent =
+    "AI suggestions will appear here after you pick Calm / Professional / Low-key.";
+  suggestionToneLabel.textContent = "Suggested version";
+}
+
+// ======================================================================
+// API HELPERS
+// ======================================================================
 
 async function getRephraseFromServer(original, tone) {
   const response = await fetch("/api/rephrase", {
@@ -347,34 +216,15 @@ async function getRephraseFromServer(original, tone) {
   return data.suggestion;
 }
 
-function showSuggestion(text, toneLabel) {
-  suggestionText.textContent = text;
-  suggestionToneLabel.textContent =
-    toneLabel || "Suggested version";
-}
-
-function clearSuggestion() {
-  suggestionText.textContent =
-    "AI suggestions will appear here after you pick Calm / Professional / Low-key.";
-  suggestionToneLabel.textContent = "Suggested version";
-}
-
-// ======================================================================
-// MESSAGE API HELPERS
-// ======================================================================
-
 async function sendMessageToServer(plainText) {
-  if (!activeContact || !activeConversationId) {
-    console.warn("No active conversation selected.");
-    return;
-  }
+  if (!activeConversationId || !activeContactId) return;
 
   const ciphertext = await encryptMessage(plainText);
 
   const body = {
     conversationId: activeConversationId,
     senderId: currentUserId,
-    recipientId: activeContact.id,
+    recipientId: activeContactId,
     ciphertext,
   };
 
@@ -411,6 +261,12 @@ async function loadConversation() {
 
   const data = await response.json();
 
+  chatBox.innerHTML = "";
+  addMessage(
+    "Hey, I’m your XL AI coach. Type what you want to say to this person, then pick a tone for a calmer, more empathetic version.",
+    "ai"
+  );
+
   for (const msg of data.messages) {
     const sender =
       msg.sender_id === currentUserId ? currentUserId : "ai";
@@ -421,14 +277,13 @@ async function loadConversation() {
 }
 
 // ======================================================================
-// UI HANDLERS
+// EVENT HANDLERS
 // ======================================================================
 
-// Send as-is
 sendButton.addEventListener("click", async () => {
   const text = messageInput.value.trim();
   if (!text) return;
-  if (!activeContact || !activeConversationId) return;
+  if (!activeConversationId || !activeContactId) return;
 
   addMessage(text, currentUserId);
   messageInput.value = "";
@@ -441,7 +296,6 @@ sendButton.addEventListener("click", async () => {
   }
 });
 
-// Tone buttons
 toneButtons.forEach((button) => {
   button.addEventListener("click", async () => {
     const toneKey = button.dataset.tone || "calm";
@@ -470,7 +324,6 @@ toneButtons.forEach((button) => {
   });
 });
 
-// Suggestion actions
 applySuggestionButton.addEventListener("click", () => {
   const text = suggestionText.textContent.trim();
   if (!text) return;
@@ -482,7 +335,6 @@ clearSuggestionButton.addEventListener("click", () => {
   clearSuggestion();
 });
 
-// Enter = Calm suggestion
 messageInput.addEventListener("keydown", (event) => {
   if (event.key === "Enter" && !event.shiftKey) {
     event.preventDefault();
@@ -494,7 +346,7 @@ messageInput.addEventListener("keydown", (event) => {
 
     getRephraseFromServer(original, defaultTone)
       .then((rephrased) => {
-        showSuggestion(rephrased, "Calm suggestion");
+        showSuggestion(rephrased, "Calm suggestion";
       })
       .catch((error) => {
         console.error("XL AI front-end error:", error);
@@ -507,17 +359,11 @@ messageInput.addEventListener("keydown", (event) => {
 });
 
 // ======================================================================
-// INITIALIZE
+// INIT
 // ======================================================================
 
-(async () => {
-  homeScreen.classList.remove("hidden");
-  chatScreen.classList.add("hidden");
-  clearSuggestion();
-
-  try {
-    await renderContactList();
-  } catch (err) {
-    console.error("Error rendering contact list:", err);
-  }
-})();
+if (activeConversationId && activeContactId) {
+  loadConversation().catch((err) => {
+    console.error("Error initializing chat:", err);
+  });
+}
