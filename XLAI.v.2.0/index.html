@@ -2,7 +2,7 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <title>XL AI Coach – Neon Chat</title>
+    <title>XL AI – Neon Chat</title>
     <meta
       name="viewport"
       content="width=device-width, initial-scale=1.0"
@@ -10,24 +10,55 @@
     <link rel="stylesheet" href="style.css" />
   </head>
   <body>
-    <div class="app-shell">
+    <!-- HOME SCREEN: contacts / friends list -->
+    <div id="home-screen" class="app-shell home-shell">
       <header class="app-header">
         <div class="app-title">
           <span class="logo-dot"></span>
-          <span>XL AI Coach</span>
+          <span>XL AI</span>
         </div>
+        <div class="status-pill">Encrypted · 24h delete (roadmap)</div>
+      </header>
+
+      <main class="home-main">
+        <h2 class="home-heading">Your conversations</h2>
+        <p class="home-subheading">
+          Tap a contact to open the XL AI coach for that conversation.
+        </p>
+
+        <div id="contact-list" class="contact-list">
+          <!-- JS will render contacts here -->
+        </div>
+      </main>
+    </div>
+
+    <!-- CHAT SCREEN: the neon coach you already built -->
+    <div id="chat-screen" class="app-shell chat-shell hidden">
+      <header class="app-header">
+        <button
+          id="back-to-home"
+          class="back-button"
+          type="button"
+          aria-label="Back to conversations"
+        >
+          ←
+        </button>
+
+        <div class="chat-header-info">
+          <div id="chat-contact-name" class="chat-contact-name">
+            XL AI Coach
+          </div>
+          <div id="chat-contact-status" class="chat-contact-status">
+            Select a contact from Home
+          </div>
+        </div>
+
         <div class="status-pill">Private · 24h delete</div>
       </header>
 
       <main class="chat-panel">
         <div id="chat-box" class="chat-box">
-          <!-- Starter coach message -->
-          <div class="message-row ai">
-            <div class="bubble">
-              Hey, I’m your XL AI coach. Type what you want to say, then
-              pick a tone for a calmer, more empathetic version.
-            </div>
-          </div>
+          <!-- Starter coach message will be added from JS AFTER opening a contact -->
         </div>
       </main>
 

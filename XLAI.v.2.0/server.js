@@ -1,7 +1,8 @@
 // server.js
-// XL AI v2 - backend with:
-// - AI rephrase endpoint (tone-aware)
-// - basic messaging API (plaintext-as-ciphertext for now)
+// XL AI v2.0 backend with:
+// - Tone-aware AI rephrase endpoint
+// - Messaging API with 24h TTL on messages
+// - "Last message per conversation" endpoint for Home screen
 
 const express = require("express");
 const cors = require("cors");
@@ -14,13 +15,25 @@ app.use(cors());
 app.use(express.json());
 app.use(express.static(__dirname)); // serve index.html, script.js, style.css
 
-// OpenAI client (used only for suggestions, not message storage)
+// OpenAI client (used only for suggestions)
 const client = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
 
 // TEMP in-memory message store
-const messages = [];
+let messages = [];
+
+// TTL in milliseconds (24 hours)
+const MESSAGE_TTL_MS = 24 * 60 * 60 * 1000;
+
+// Utility: remove messages older than 24h
+function pruneExpiredMessages() {
+  const now = Date.now();
+  messages = messages.filter((m) => {
+    const created = new Date(m.createdAt).getTime();
+    return now - created < MESSAGE_TTL_MS;
+  });
+}
 
 // Health check
 app.get("/api/health", (req, res) => {
@@ -108,9 +121,12 @@ RULES:
   }
 });
 
-// ---------- BASIC MESSAGING API (E2EE-ready shape) ----------
+// ---------- MESSAGING API (with TTL) ----------
 
+// POST /api/messages  -> store ciphertext for a conversation
 app.post("/api/messages", (req, res) => {
+  pruneExpiredMessages();
+
   const { conversationId, senderId, recipientId, ciphertext } = req.body;
 
   if (!conversationId || !senderId || !recipientId || !ciphertext) {
@@ -124,7 +140,7 @@ app.post("/api/messages", (req, res) => {
     conversationId,
     senderId,
     recipientId,
-    ciphertext, // will be real encrypted text later
+    ciphertext, // encrypted (or demo-encrypted) string
     createdAt: new Date().toISOString(),
   };
 
@@ -132,7 +148,10 @@ app.post("/api/messages", (req, res) => {
   res.status(201).json({ message });
 });
 
+// GET /api/messages?conversationId=...  -> all messages for that conversation (non-expired)
 app.get("/api/messages", (req, res) => {
+  pruneExpiredMessages();
+
   const { conversationId } = req.query;
   if (!conversationId) {
     return res.status(400).json({ error: "conversationId is required" });
@@ -143,6 +162,28 @@ app.get("/api/messages", (req, res) => {
     .sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
 
   res.json({ messages: convoMessages });
+});
+
+// GET /api/last-messages  ->  last non-expired message per conversation
+app.get("/api/last-messages", (req, res) => {
+  pruneExpiredMessages();
+
+  // Group by conversationId, pick the latest
+  const byConversation = new Map();
+
+  for (const m of messages) {
+    const existing = byConversation.get(m.conversationId);
+    if (!existing) {
+      byConversation.set(m.conversationId, m);
+    } else {
+      if (new Date(m.createdAt) > new Date(existing.createdAt)) {
+        byConversation.set(m.conversationId, m);
+      }
+    }
+  }
+
+  const lastMessages = Array.from(byConversation.values());
+  res.json({ lastMessages });
 });
 
 const PORT = process.env.PORT || 3000;
