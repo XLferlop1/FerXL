@@ -11,13 +11,9 @@ const sendButton = document.getElementById("send-button");
 const toneButtons = document.querySelectorAll(".tone-button");
 
 const suggestionText = document.getElementById("suggestion-text");
-const suggestionToneLabel = document.getElementById(
-  "suggestion-tone-label"
-);
-const applySuggestionButton =
-  document.getElementById("apply-suggestion");
-const clearSuggestionButton =
-  document.getElementById("clear-suggestion");
+const suggestionToneLabel = document.getElementById("suggestion-tone-label");
+const applySuggestionButton = document.getElementById("apply-suggestion");
+const clearSuggestionButton = document.getElementById("clear-suggestion");
 
 // ---- Conversation context ----
 const currentUserId = "user_A"; // For now, same demo user
@@ -184,8 +180,7 @@ function addMessage(text, senderId) {
 
 function showSuggestion(text, toneLabel) {
   suggestionText.textContent = text;
-  suggestionToneLabel.textContent =
-    toneLabel || "Suggested version";
+  suggestionToneLabel.textContent = toneLabel || "Suggested version";
 }
 
 function clearSuggestion() {
@@ -346,7 +341,7 @@ messageInput.addEventListener("keydown", (event) => {
 
     getRephraseFromServer(original, defaultTone)
       .then((rephrased) => {
-        showSuggestion(rephrased, "Calm suggestion";
+        showSuggestion(rephrased, "Calm suggestion");
       })
       .catch((error) => {
         console.error("XL AI front-end error:", error);
