@@ -2,7 +2,7 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <title>XL AI – Conversations</title>
+    <title>XL AI • Conversations</title>
     <meta
       name="viewport"
       content="width=device-width, initial-scale=1.0"
@@ -10,141 +10,132 @@
     <link rel="stylesheet" href="style.css" />
   </head>
 
-  <body class="app-bg">
-    <div class="app-frame">
-      <!-- Top status bar -->
-      <header class="top-bar">
-        <div class="top-left">
-          <div class="logo-dot"></div>
-          <span class="logo-text">XL AI</span>
+  <body class="xlai-theme">
+    <div class="app-shell">
+      <!-- Top bar / header -->
+      <header class="app-header">
+        <div class="app-title-left">
+          <span class="logo-dot"></span>
+          <span class="app-title-text">XL AI</span>
         </div>
-        <div class="top-pill">Encrypted · 24h delete (beta)</div>
+
+        <div class="app-header-center-pill">
+          <span class="pill-label">Encrypted · 24h delete (beta)</span>
+        </div>
+
+        <div class="app-header-right-pill">
+          <span class="pill-label">Emotional OS prototype</span>
+        </div>
       </header>
 
-      <!-- Main layout: conversations + counselor map -->
-      <main class="home-layout">
-        <!-- LEFT: Conversation list / home -->
-        <section class="home-panel">
+      <!-- Main content -->
+      <main class="app-main">
+        <!-- Single home panel (no nested panel) -->
+        <section class="panel panel-home">
+          <!-- Conversations header -->
           <header class="panel-header">
-            <h1>Your conversations</h1>
+            <h1 class="panel-title">Your conversations</h1>
             <p class="panel-subtitle">
               Tap a contact to open XL AI coaching for that conversation.
             </p>
           </header>
 
-          <section class="conversation-list">
-            <!-- Demo contacts for now -->
-            <article class="conversation-card">
+          <!-- Conversation list -->
+          <div class="conversation-list">
+            <!-- Alex -->
+            <a
+              class="conversation-row"
+              href="chat.html?conversation=alex"
+            >
+              <div class="conversation-avatar conversation-avatar-a">
+                A
+              </div>
               <div class="conversation-main">
-                <div class="avatar-circle avatar-a">A</div>
-                <div class="conversation-meta">
-                  <div class="conversation-title-row">
-                    <h2>Alex</h2>
-                    <span class="presence-pill online">
-                      Online · using XL AI
-                    </span>
-                  </div>
-                  <p class="conversation-preview">
-                    I’m feeling really frustrated right now.
-                  </p>
+                <div class="conversation-name-row">
+                  <span class="conversation-name">Alex</span>
+                  <span
+                    class="conversation-chip conversation-chip-online"
+                  >
+                    Online · using XL AI
+                  </span>
+                </div>
+                <div class="conversation-preview">
+                  I’m feeling really frustrated right now.
                 </div>
               </div>
-              <a
-                class="pill-button"
-                href="chat.html?conv=alex&name=Alex"
-              >
-                Open
-              </a>
-            </article>
+              <div class="conversation-meta">
+                <span class="conversation-open-chip">Open</span>
+              </div>
+            </a>
 
-            <article class="conversation-card">
+            <!-- Jordan -->
+            <a
+              class="conversation-row"
+              href="chat.html?conversation=jordan"
+            >
+              <div class="conversation-avatar conversation-avatar-j">
+                J
+              </div>
               <div class="conversation-main">
-                <div class="avatar-circle avatar-j">J</div>
-                <div class="conversation-meta">
-                  <div class="conversation-title-row">
-                    <h2>Jordan</h2>
-                    <span class="presence-pill">Last seen 2 hours ago</span>
-                  </div>
-                  <p class="conversation-preview">
-                    It feels like there’s a lot of tension between us lately.
-                  </p>
+                <div class="conversation-name-row">
+                  <span class="conversation-name">Jordan</span>
+                  <span
+                    class="conversation-chip conversation-chip-away"
+                  >
+                    Last seen 2 hours ago
+                  </span>
+                </div>
+                <div class="conversation-preview">
+                  It feels like there’s a lot of tension between us lately.
                 </div>
               </div>
-              <a
-                class="pill-button"
-                href="chat.html?conv=jordan&name=Jordan"
-              >
-                Open
-              </a>
-            </article>
+              <div class="conversation-meta">
+                <span class="conversation-open-chip">Open</span>
+              </div>
+            </a>
 
-            <article class="conversation-card">
+            <!-- Taylor -->
+            <a
+              class="conversation-row"
+              href="chat.html?conversation=taylor"
+            >
+              <div class="conversation-avatar conversation-avatar-t">
+                T
+              </div>
               <div class="conversation-main">
-                <div class="avatar-circle avatar-t">T</div>
-                <div class="conversation-meta">
-                  <div class="conversation-title-row">
-                    <h2>Taylor</h2>
-                    <span class="presence-pill">Last seen yesterday</span>
-                  </div>
-                  <p class="conversation-preview">
-                    No recent messages. Tap to start with XL AI support.
-                  </p>
+                <div class="conversation-name-row">
+                  <span class="conversation-name">Taylor</span>
+                  <span
+                    class="conversation-chip conversation-chip-offline"
+                  >
+                    Last seen yesterday
+                  </span>
+                </div>
+                <div class="conversation-preview">
+                  No recent messages. Tap to start with XL AI support.
                 </div>
               </div>
-              <a
-                class="pill-button"
-                href="chat.html?conv=taylor&name=Taylor"
-              >
-                Open
-              </a>
-            </article>
-          </section>
-        </section>
-
-        <!-- RIGHT: XL AI Counselor Map preview -->
-        <aside class="map-panel">
-          <header class="map-header">
-            <div class="map-status">
-              <span class="status-dot"></span>
-              <span class="map-title">XL AI Counselor Map</span>
-            </div>
-            <span class="map-subtitle">Earth · nearby support</span>
-          </header>
-
-          <!-- Futuristic globe shell (visual only for now) -->
-          <div class="map-globe-shell">
-            <div class="map-globe-gradient"></div>
-            <div class="map-globe-grid"></div>
-
-            <div class="map-orbit-icons">
-              <div class="orbit-icon orbit-1"></div>
-              <div class="orbit-icon orbit-2"></div>
-              <div class="orbit-icon orbit-3"></div>
-            </div>
+              <div class="conversation-meta">
+                <span class="conversation-open-chip">Open</span>
+              </div>
+            </a>
           </div>
 
-          <footer class="map-footer">
-            <div class="map-tabs">
-              <button class="map-tab active">Nearby</button>
-              <button class="map-tab">Favorites</button>
-              <button class="map-tab">Online only</button>
-            </div>
-            <div class="map-legend">
-              <span class="legend-pill">
-                <span class="dot dot-open"></span> Open now
-              </span>
-              <span class="legend-pill muted">
-                <span class="dot dot-closed"></span> Closed
-              </span>
-            </div>
-            <p class="map-disclaimer">
-              Public data only. XL AI does not verify or endorse providers.
+          <!-- Footer note -->
+          <footer class="panel-footer">
+            <div class="footer-dot"></div>
+            <p class="footer-text">
+              XL AI helps you deliver calmer, more honest messages — without
+              storing your chats forever.
             </p>
           </footer>
-        </aside>
+        </section>
       </main>
     </div>
 
-    <script src="contacts.js" defer></script>
+    <!-- Scripts -->
+    <script type="module" src="firebase-init.js"></script>
+<script src="contacts.js"></script>    <!-- on index.html only -->
+<script src="chat.js"></script>        <!-- on chat.html only -->
   </body>
 </html>

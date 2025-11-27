@@ -2,124 +2,128 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <title>XL AI – Chat</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>XL AI – Coach</title>
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, maximum-scale=1.0"
+    />
     <link rel="stylesheet" href="style.css" />
   </head>
-  <body>
-    <!-- CHAT SCREEN -->
-    <div class="app-shell chat-shell">
-      <header class="app-header">
-        <a
-          href="index.html"
-          class="back-button"
-          aria-label="Back to conversations"
-        >
-          ←
-        </a>
 
-        <div class="chat-header-info">
-          <div id="chat-contact-name" class="chat-contact-name">
-            XL AI Coach
-          </div>
-          <div id="chat-contact-status" class="chat-contact-status">
-            Loading conversation…
+  <body class="xlai-theme">
+    <div class="app-frame">
+      <!-- Top bar -->
+      <header class="top-bar chat-top-bar">
+        <div class="top-bar-left">
+          <button
+            type="button"
+            class="icon-button"
+            onclick="window.location.href='index.html';"
+            aria-label="Back to conversations"
+          >
+            ←
+          </button>
+          <div class="chat-header-text">
+            <div id="chat-contact-name" class="chat-contact-name">XL AI Coach</div>
+            <div class="chat-subtitle">Private · 24h delete</div>
           </div>
         </div>
 
-        <div class="status-pill">Private · 24h delete</div>
+        <div class="top-bar-right">
+          <button type="button" class="pill pill-outline">COACH MODE</button>
+        </div>
       </header>
 
-      <main class="chat-panel">
-        <div id="chat-box" class="chat-box">
-          <!-- Messages will be rendered here by chat.js -->
-        </div>
+      <!-- Chat shell -->
+      <main class="chat-main">
+        <section class="panel panel-chat">
+          <!-- System message / hint -->
+          <div class="chat-hint-bubble" id="chat-hint">
+            Hey, I’m your XL AI coach. Type what you want to say to this person,
+            then pick a tone for a calmer, more empathetic version.
+          </div>
+
+          <!-- Message history area -->
+          <div id="chat-box" class="chat-box"></div>
+
+          <!-- Composer -->
+          <section class="input-shell">
+  <header class="input-header">
+    <div class="field-title">Your message</div>
+    <div class="field-subtitle">
+      Type what you really want to say...
+    </div>
+  </header>
+
+  <!-- Emotion check-in row -->
+  <div class="emotion-row">
+    <div class="emotion-label">How are you feeling right now?</div>
+    <div class="emotion-pills">
+      <button class="emotion-pill" data-emotion="calm">Calm</button>
+      <button class="emotion-pill" data-emotion="anxious">Anxious</button>
+      <button class="emotion-pill" data-emotion="frustrated">Frustrated</button>
+      <button class="emotion-pill" data-emotion="sad">Sad</button>
+      <button class="emotion-pill" data-emotion="hopeful">Hopeful</button>
+    </div>
+  </div>
+
+  <textarea
+    id="message-input"
+    class="message-input"
+    rows="3"
+    placeholder="Type what you REALLY want to say..."
+  ></textarea>
+
+  <div class="input-actions">
+    <button id="deliver-button" class="primary-button">
+      Deliver
+    </button>
+  </div>
+</section>
+          </section>
+        </section>
       </main>
-
-      <section class="input-panel">
-        <label class="input-label" for="message-input">
-          <span class="label-title">Your message</span>
-          <span class="label-sub">
-            Type what you REALLY want to say…
-          </span>
-        </label>
-
-        <textarea
-          id="message-input"
-          class="message-input"
-          rows="3"
-          placeholder="Type what you REALLY want to say…"
-        ></textarea>
-
-        <div class="action-row">
-          <button id="send-button" class="btn primary" type="button">
-            Send
-          </button>
-
-          <div class="tone-group">
-            <button
-              class="btn secondary tone-button"
-              data-tone="calm"
-              type="button"
-            >
-              Calm
-            </button>
-            <button
-              class="btn secondary tone-button"
-              data-tone="professional"
-              type="button"
-            >
-              Professional
-            </button>
-            <button
-              class="btn secondary tone-button"
-              data-tone="lowkey"
-              type="button"
-            >
-              Low-key
-            </button>
-          </div>
-        </div>
-
-        <!-- XL AI suggestion box -->
-        <div id="suggestion-panel" class="suggestion-panel">
-          <div class="suggestion-header">
-            <span
-              id="suggestion-tone-label"
-              class="suggestion-label"
-            >
-              Suggested version
-            </span>
-            <span class="suggestion-hint">
-              Tap “Use suggestion” to replace your text.
-            </span>
-          </div>
-
-          <p id="suggestion-text" class="suggestion-text">
-            AI suggestions will appear here after you pick Calm /
-            Professional / Low-key.
-          </p>
-
-          <div class="suggestion-actions">
-            <button
-              id="apply-suggestion"
-              class="btn secondary small"
-              type="button"
-            >
-              Use suggestion
-            </button>
-            <button
-              id="clear-suggestion"
-              class="btn ghost small"
-              type="button"
-            >
-              Clear
-            </button>
-          </div>
-        </div>
-      </section>
     </div>
 
-    <script src="chat.js"></script>
+    <!-- Predictive Pause modal -->
+    <div id="pause-modal" class="pause-modal hidden">
+      <div class="pause-modal-backdrop"></div>
+      <div class="pause-modal-card">
+        <div class="pause-modal-title">Suggested pause</div>
+        <p class="pause-modal-copy">
+          XL AI noticed this message feels
+          <span id="pause-emotion">intense</span>. Your words carry weight —
+          take a short pause before you send.
+        </p>
+
+        <div class="pause-modal-meter-row">
+          <span class="pause-meter-label">Intensity</span>
+          <div class="pause-meter-track">
+            <div id="pause-meter-fill" class="pause-meter-fill"></div>
+          </div>
+          <span id="pause-intensity" class="pause-intensity-value">0%</span>
+        </div>
+
+        <div class="pause-timer-row">
+          <span>Breath timer</span>
+          <span id="pause-timer">15s</span>
+        </div>
+
+        <div class="pause-modal-actions">
+          <button id="pause-cancel" class="ghost-button">Cancel</button>
+          <button id="pause-rephrase" class="secondary-button">
+            Rephrase with XL AI
+          </button>
+          <button id="pause-continue" class="primary-button" disabled>
+            Send anyway
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Scripts -->
+    <script type="module" src="firebase-init.js"></script>
+<script src="contacts.js"></script>    <!-- on index.html only -->
+<script src="chat.js"></script>        <!-- on chat.html only -->
   </body>
 </html>
