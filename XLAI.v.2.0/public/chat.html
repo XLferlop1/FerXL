@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>XL AI Coach · Conversation</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="stylesheet" href="/style.css" />
+  </head>
+
+  <body class="xl-root">
+    <main class="xl-shell xl-chat-layout">
+      <!-- Left side: conversation history -->
+      <section class="xl-panel xl-panel-history">
+        <header class="xl-panel-header">
+          <div>
+            <h1>XL</h1>
+            <p class="xl-subtitle">Private · 24h auto delete · EQ Chat</p>
+          </div>
+        </header>
+
+        <h2 class="xl-section-title">Conversation history</h2>
+        <div id="chatHistory" class="xl-history-list">
+          <!-- bubbles get inserted here by chat.js -->
+        </div>
+      </section>
+
+      <!-- Right side: brain controls -->
+      <section class="xl-panel xl-panel-brain">
+        <!-- Tone + suggestion pills -->
+        <section class="xl-card xl-tone-card">
+          <header class="xl-card-header">
+            <div>
+              <p class="xl-label">Current tone</p>
+              <h2 id="currentToneLabel">CALM</h2>
+            </div>
+          </header>
+
+          <div class="xl-pill-row">
+            <button
+              id="toneCalm"
+              class="xl-pill xl-pill-primary is-active"
+              data-tone-btn
+              data-tone="calm"
+            >
+              CALM
+            </button>
+            <button
+              id="toneProfessional"
+              class="xl-pill xl-pill-primary"
+              data-tone-btn
+              data-tone="professional"
+            >
+              PROFESSIONAL
+            </button>
+            <button
+              id="toneLowKey"
+              class="xl-pill xl-pill-primary"
+              data-tone-btn
+              data-tone="low-key"
+            >
+              LOW-KEY
+            </button>
+          </div>
+
+          <div id="aiSuggestionRow" style="display:none; margin-top:8px;">
+  <div id="aiSuggestionText"></div>
+          <button id="useSuggestionBtn">> USE THIS VERSION</button>
+          <button id="rephraseButtonTop" class="xl-secondary-btn" type="button">REPHRASE</button>
+          </div>
+            
+            <button
+              id="clearSuggestionButton"
+              class="xl-pill xl-pill-ghost"
+              type="button"
+            >
+              CLEAR
+            </button>
+          </div>
+        </section>
+
+        <!-- Emotion slider -->
+        <section class="xl-card">
+          <h2 class="xl-section-title">HOW ARE YOU FEELING RIGHT NOW?</h2>
+          <div class="xl-emotion-list">
+            <button
+              class="xl-emotion-bar"
+              data-emotion-btn
+              data-emotion="calm"
+            >
+              <span>Calm</span>
+            </button>
+            <button
+              class="xl-emotion-bar"
+              data-emotion-btn
+              data-emotion="anxious"
+            >
+              <span>Anxious</span>
+            </button>
+            <button
+              class="xl-emotion-bar"
+              data-emotion-btn
+              data-emotion="frustrated"
+            >
+              <span>Frustrated</span>
+            </button>
+            <button
+              class="xl-emotion-bar"
+              data-emotion-btn
+              data-emotion="sad"
+            >
+              <span>Sad</span>
+            </button>
+            <button
+              class="xl-emotion-bar"
+              data-emotion-btn
+              data-emotion="hopeful"
+            >
+              <span>Hopeful</span>
+            </button>
+          </div>
+        </section>
+
+        <!-- Analyzer + coach feedback -->
+        <section class="xl-card xl-analyzer-card">
+          <div class="xl-analyzer-row">
+            <div class="xl-analyzer-label-group">
+              <p class="xl-label">Analyzer</p>
+            </div>
+            <button id="analyzerToggleBtn" class="xl-toggle-btn" type="button">
+              <span id="analyzerStatusCircle" class="xl-toggle-circle"></span>
+              <span id="analyzerStatusLabel">ON</span>
+              <span id="analyzerLabel" class="xl-chip">ANALYZER</span>
+            </button>
+            <div class="xl-coach-mode-row">
+  <p class="xl-label">Coach mode</p>
+
+  <div class="xl-pill-row">
+    <button id="coachModeSoftBtn" class="xl-pill xl-pill-primary is-active" type="button">
+      SOFT
+    </button>
+
+    <button id="coachModeHighBtn" class="xl-pill xl-pill-primary" type="button">
+      HIGH
+    </button>
+
+    <span id="coachModeLabel" >SOFT </span>
+  </div>
+</div>
+
+          <div class="xl-coach-header">
+            <span class="xl-chip" id="intensityLabel" > Medium intensity</span>
+          </div>
+
+          <div class="xl-coach-body">
+            <p class="xl-label">XL AI Coach</p>
+            <p id="coachHintText" class="xl-coach-text">
+              Your tone has some heat, but you’re still in a coaching zone.
+              Try turning one accusation into an “I feel…” statement.
+            </p>
+            <button
+              id="refreshCoachButton"
+              type="button"
+              class="xl-link-btn"
+            >
+              Refresh coach feedback
+            </button>
+          </div>
+        </section>
+
+        <!-- Input + deliver -->
+        <section class="xl-card xl-input-card">
+          <label for="messageInput" class="xl-label">
+            Type your message below:
+          </label>
+          <textarea
+            id="messageInput"
+            class="xl-input"
+            rows="3"
+            placeholder="Type…"
+          ></textarea>
+
+          <p class="xl-subtitle" style="margin-top:10px;">
+  XLAI is a communication coach — not therapy. Avoid sharing sensitive personal info.
+</p>
+
+          <div class="xl-input-footer">
+            <button id="rephraseButton" class="xl-secondary-btn" type="button">
+              REPHRASE
+            </button>
+            <button id="deliverButton" class="xl-primary-btn" type="button">
+              DELIVER
+            </button>
+          </div>
+        </section>
+      </section>
+    </main>
+
+    <!-- Pause modal for “take a breath” moments -->
+    <div id="pauseModal" class="xl-modal hidden">
+      <div class="xl-modal-backdrop"></div>
+      <div class="xl-modal-dialog">
+        <h2>lets pause and Take a breath!</h2>
+        <p class="xl-modal-text">
+          This message is coming in a little hot/intense
+          (<span id="pauseIntensityLabel">high intensity</span>).
+          You’re in control — what would you like to do?
+        </p>
+
+        <div class="xl-modal-actions">
+          <button
+            id="pauseUseSuggestionButton"
+            class="xl-primary-btn"
+            type="button"
+          >
+            Use XL AI rephrase
+          </button>
+          <button
+            id="pauseSendAnywayButton"
+            class="xl-secondary-btn"
+            type="button"
+          >
+            Send anyway
+          </button>
+          <button
+            id="pauseCancelButton"
+            class="xl-pill xl-pill-ghost"
+            type="button"
+          >
+            Cancel/Back
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <script src="/chat.js"></script>
+  </body>
+</html>

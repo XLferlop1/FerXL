@@ -2,140 +2,48 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <title>XL AI • Conversations</title>
-    <meta
-      name="viewport"
-      content="width=device-width, initial-scale=1.0"
-    />
+    <title>XL AI Coach · Private EQ Prototype</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <link rel="stylesheet" href="style.css" />
   </head>
 
-  <body class="xlai-theme">
-    <div class="app-shell">
-      <!-- Top bar / header -->
-      <header class="app-header">
-        <div class="app-title-left">
-          <span class="logo-dot"></span>
-          <span class="app-title-text">XL AI</span>
-        </div>
-
-        <div class="app-header-center-pill">
-          <span class="pill-label">Encrypted · 24h delete (beta)</span>
-        </div>
-
-        <div class="app-header-right-pill">
-          <span class="pill-label">Emotional OS prototype</span>
-        </div>
+  <body class="xl-root">
+    <main class="xl-shell">
+      <header class="xl-header">
+        <h1>XL AI Coach</h1>
+        <p class="xl-tagline">
+          Private, 24-hour auto-delete messaging with an emotional-intelligence coach.
+        </p>
       </header>
 
-      <!-- Main content -->
-      <main class="app-main">
-        <!-- Single home panel (no nested panel) -->
-        <section class="panel panel-home">
-          <!-- Conversations header -->
-          <header class="panel-header">
-            <h1 class="panel-title">Your conversations</h1>
-            <p class="panel-subtitle">
-              Tap a contact to open XL AI coaching for that conversation.
-            </p>
-          </header>
+      <section class="xl-card">
+        <h2>Coach Mode</h2>
+        <p>
+          Draft what you <strong>really</strong> want to say, get calmer rephrasing,
+          and keep a private EQ coach in the loop. Messages are stored only for
+          coaching analytics and can be auto-deleted after 24 hours in production.
+        </p>
 
-          <!-- Conversation list -->
-          <div class="conversation-list">
-            <!-- Alex -->
-            <a
-              class="conversation-row"
-              href="chat.html?conversation=alex"
-            >
-              <div class="conversation-avatar conversation-avatar-a">
-                A
-              </div>
-              <div class="conversation-main">
-                <div class="conversation-name-row">
-                  <span class="conversation-name">Alex</span>
-                  <span
-                    class="conversation-chip conversation-chip-online"
-                  >
-                    Online · using XL AI
-                  </span>
-                </div>
-                <div class="conversation-preview">
-                  I’m feeling really frustrated right now.
-                </div>
-              </div>
-              <div class="conversation-meta">
-                <span class="conversation-open-chip">Open</span>
-              </div>
-            </a>
+        <a href="/chat.html" class="xl-primary-btn">
+          Open XL AI Coach
+        </a>
+      </section>
 
-            <!-- Jordan -->
-            <a
-              class="conversation-row"
-              href="chat.html?conversation=jordan"
-            >
-              <div class="conversation-avatar conversation-avatar-j">
-                J
-              </div>
-              <div class="conversation-main">
-                <div class="conversation-name-row">
-                  <span class="conversation-name">Jordan</span>
-                  <span
-                    class="conversation-chip conversation-chip-away"
-                  >
-                    Last seen 2 hours ago
-                  </span>
-                </div>
-                <div class="conversation-preview">
-                  It feels like there’s a lot of tension between us lately.
-                </div>
-              </div>
-              <div class="conversation-meta">
-                <span class="conversation-open-chip">Open</span>
-              </div>
-            </a>
+      <section class="xl-card">
+        <h2>EQ Log (internal only)</h2>
+        <p>
+          Internal debugging view for the XL AI team. Shows anonymized message
+          history, intensity, and EQ coaching stats from the database.
+        </p>
 
-            <!-- Taylor -->
-            <a
-              class="conversation-row"
-              href="chat.html?conversation=taylor"
-            >
-              <div class="conversation-avatar conversation-avatar-t">
-                T
-              </div>
-              <div class="conversation-main">
-                <div class="conversation-name-row">
-                  <span class="conversation-name">Taylor</span>
-                  <span
-                    class="conversation-chip conversation-chip-offline"
-                  >
-                    Last seen yesterday
-                  </span>
-                </div>
-                <div class="conversation-preview">
-                  No recent messages. Tap to start with XL AI support.
-                </div>
-              </div>
-              <div class="conversation-meta">
-                <span class="conversation-open-chip">Open</span>
-              </div>
-            </a>
-          </div>
+        <a href="/eq-log.html" class="xl-secondary-btn">
+          Open EQ Log (team only)
+        </a>
+      </section>
 
-          <!-- Footer note -->
-          <footer class="panel-footer">
-            <div class="footer-dot"></div>
-            <p class="footer-text">
-              XL AI helps you deliver calmer, more honest messages — without
-              storing your chats forever.
-            </p>
-          </footer>
-        </section>
-      </main>
-    </div>
-
-    <!-- Scripts -->
-    <script type="module" src="firebase-init.js"></script>
-<script src="contacts.js"></script>    <!-- on index.html only -->
-<script src="chat.js"></script>        <!-- on chat.html only -->
+      <footer class="xl-footer">
+        <p>Prototype · Not medical or therapy advice · For communication coaching only.</p>
+      </footer>
+    </main>
   </body>
-</html>
+</html></html>

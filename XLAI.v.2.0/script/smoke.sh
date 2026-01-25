@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+SMOKE_HEADER='X-Smoke-Test: 1'
 set -euo pipefail
 
 BASE_URL="${BASE_URL:-http://127.0.0.1:3000}"
@@ -19,12 +20,12 @@ ANALYZE_RESP="$(curl -sS -X POST "$BASE_URL/api/analyze-intensity" \
   -H "Content-Type: application/json" \
   -d '{"text":"I am really frustrated you ignored me","tone":"low-key","coachMode":"soft"}')'"
 echo "$ANALYZE_RESP" | cat
-echo
 
-echo "4) POST /api/send (writes to DB)"
+echo "4) POST /api/send (DRY RUN - should NOT write to DB)"
 SEND_RESP="$(curl -sS -X POST "$BASE_URL/api/send" \
   -H "Content-Type: application/json" \
-  -d '{"conversationId":"smoke","userId":"demo_user","originalText":"I am really frustrated you ignored me","finalText":"I felt hurt when I didn’t hear back.","preSendEmotion":"frustrated","intensityScore":0.6,"wasPauseTaken":false,"usedSuggestion":true}')"
+  -H "$SMOKE_HEADER" \
+  -d '{"conversationId":"smoke","userId":"demo_user","originalText":"I am really frustrated you ignored me","finalText":"I feel a bit frustrated that I was ignored.","preSendEmotion":"frustrated","intensityScore":0.6,"usedSuggestion":true}')"
 echo "$SEND_RESP" | cat
 echo
 

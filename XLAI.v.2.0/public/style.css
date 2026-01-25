@@ -1,0 +1,552 @@
+/* =========================================================
+   XL AI – Clean UI CSS (chat.html)
+   - Privacy-first, modern, simple
+   - Works on mobile + desktop
+   ========================================================= */
+
+/* -----------------------------
+   Design tokens
+------------------------------ */
+:root{
+  --bg: #0b0f17;
+  --panel: #0f1624;
+  --card: #111b2d;
+  --card2: #0f182a;
+  --border: rgba(255,255,255,.10);
+  --border2: rgba(255,255,255,.16);
+
+  --text: rgba(255,255,255,.92);
+  --muted: rgba(255,255,255,.62);
+  --muted2: rgba(255,255,255,.48);
+
+  --accent: #7c5cff;      /* XL purple */
+  --accent2: #4fe3c1;     /* teal for success */
+  --warn: #ffcc66;
+  --danger: #ff6b6b;
+
+  --shadow: 0 10px 30px rgba(0,0,0,.35);
+  --shadow2: 0 6px 18px rgba(0,0,0,.25);
+
+  --r-sm: 10px;
+  --r-md: 14px;
+  --r-lg: 18px;
+
+  --gap: 14px;
+  --pad: 16px;
+
+  --font: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji","Segoe UI Emoji";
+}
+
+/* -----------------------------
+   Base / Reset
+------------------------------ */
+*{ box-sizing: border-box; }
+html, body{ height: 100%; }
+body{
+  margin: 0;
+  font-family: var(--font);
+  background: radial-gradient(1200px 700px at 10% 0%, rgba(124,92,255,.16), transparent 55%),
+              radial-gradient(900px 600px at 90% 15%, rgba(79,227,193,.12), transparent 60%),
+              var(--bg);
+  color: var(--text);
+}
+
+a{ color: inherit; }
+button, textarea{ font-family: inherit; }
+button{ cursor: pointer; }
+button:disabled{ opacity: .55; cursor: not-allowed; }
+
+.hidden{ display: none !important; }
+
+/* -----------------------------
+   Shell / Layout
+------------------------------ */
+.xl-root{ min-height: 100vh; }
+
+.xl-shell{
+  width: min(1200px, 100%);
+  margin: 0 auto;
+  padding: 18px;
+}
+
+.xl-chat-layout{
+  display: grid;
+  grid-template-columns: 1.15fr .85fr;
+  gap: var(--gap);
+  align-items: start;
+}
+
+/* Mobile: stack */
+@media (max-width: 980px){
+  .xl-chat-layout{
+    grid-template-columns: 1fr;
+  }
+  .xl-shell{
+    padding: 12px;
+  }
+}
+
+/* -----------------------------
+   Panels
+------------------------------ */
+.xl-panel{
+  background: rgba(15,22,36,.72);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow);
+  overflow: hidden;
+}
+
+.xl-panel-header{
+  padding: 18px 18px 10px 18px;
+  border-bottom: 1px solid var(--border);
+  background: linear-gradient(to bottom, rgba(255,255,255,.04), transparent);
+}
+
+.xl-panel-header h1{
+  margin: 0;
+  font-size: 22px;
+  letter-spacing: .2px;
+}
+
+.xl-subtitle{
+  margin: 6px 0 0 0;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.xl-section-title{
+  margin: 12px 18px 10px 18px;
+  font-size: 12px;
+  letter-spacing: .12em;
+  color: var(--muted);
+  text-transform: uppercase;
+}
+
+/* History panel */
+.xl-panel-history{
+  min-height: 74vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.xl-history-list{
+  padding: 10px 18px 18px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  overflow: auto;
+  height: 100%;
+}
+
+/* Brain panel */
+.xl-panel-brain{
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--gap);
+}
+
+/* -----------------------------
+   Cards
+------------------------------ */
+.xl-card{
+  background: rgba(17,27,45,.72);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow2);
+  padding: var(--pad);
+}
+
+.xl-card-header{
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.xl-label{
+  margin: 0 0 6px 0;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: .12em;
+  color: var(--muted);
+}
+
+#currentToneLabel{
+  margin: 0;
+  font-size: 22px;
+  letter-spacing: .06em;
+}
+
+/* -----------------------------
+   Pills / Chips / Buttons
+------------------------------ */
+.xl-pill-row{
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.xl-pill{
+  border: 1px solid var(--border2);
+  background: rgba(255,255,255,.04);
+  color: var(--text);
+  padding: 10px 12px;
+  border-radius: 999px;
+  font-size: 12px;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  transition: transform .06s ease, background .18s ease, border-color .18s ease, box-shadow .18s ease;
+}
+
+.xl-pill:hover{
+  background: rgba(255,255,255,.07);
+  transform: translateY(-1px);
+}
+
+.xl-pill.is-active,
+.xl-pill-primary.is-active{
+  background: rgba(124,92,255,.18);
+  border-color: rgba(124,92,255,.55);
+  box-shadow: 0 0 0 3px rgba(124,92,255,.12);
+}
+
+.xl-pill-ghost{
+  background: transparent;
+  border-color: rgba(255,255,255,.18);
+  color: var(--muted);
+}
+
+.xl-pill-ghost:hover{
+  background: rgba(255,255,255,.05);
+  color: var(--text);
+}
+
+/* Primary / Secondary / Link */
+.xl-primary-btn{
+  border: 1px solid rgba(124,92,255,.70);
+  background: linear-gradient(180deg, rgba(124,92,255,.95), rgba(124,92,255,.74));
+  color: white;
+  padding: 12px 14px;
+  border-radius: 12px;
+  font-weight: 700;
+  letter-spacing: .06em;
+}
+
+.xl-primary-btn:hover{
+  filter: brightness(1.05);
+  box-shadow: 0 0 0 3px rgba(124,92,255,.16);
+}
+
+.xl-secondary-btn{
+  border: 1px solid rgba(255,255,255,.18);
+  background: rgba(255,255,255,.06);
+  color: var(--text);
+  padding: 12px 14px;
+  border-radius: 12px;
+  font-weight: 650;
+}
+
+.xl-secondary-btn:hover{
+  background: rgba(255,255,255,.10);
+}
+
+.xl-link-btn{
+  border: none;
+  background: transparent;
+  color: rgba(124,92,255,.92);
+  padding: 8px 0;
+  font-weight: 650;
+  text-align: left;
+}
+
+.xl-link-btn:hover{
+  text-decoration: underline;
+}
+
+/* Tiny chip */
+.xl-chip{
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(255,255,255,.14);
+  background: rgba(255,255,255,.05);
+  color: var(--muted);
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+/* Suggestion row */
+#aiSuggestionRow{
+  background: rgba(79,227,193,.08);
+  border: 1px solid rgba(79,227,193,.22);
+  border-radius: var(--r-md);
+  padding: 10px;
+  display: none;
+  gap: 10px;
+}
+
+#aiSuggestionText{
+  color: rgba(255,255,255,.90);
+  font-size: 14px;
+  line-height: 1.35;
+  margin-bottom: 8px;
+}
+
+#useSuggestionBtn{
+  width: 100%;
+  border: 1px solid rgba(79,227,193,.45);
+  background: rgba(79,227,193,.16);
+  color: rgba(255,255,255,.92);
+  padding: 10px 12px;
+  border-radius: 12px;
+  font-weight: 700;
+  letter-spacing: .06em;
+}
+
+#useSuggestionBtn:hover{
+  background: rgba(79,227,193,.22);
+}
+
+/* Intensity label (small) */
+#intensityLabel{
+  display: inline-flex;
+  align-items: center;
+  padding: 7px 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(255,255,255,.14);
+  background: rgba(255,255,255,.05);
+  color: var(--muted);
+  font-size: 12px;
+  margin-right: 8px;
+}
+
+/* -----------------------------
+   Emotion buttons
+------------------------------ */
+.xl-emotion-list{
+  display: grid;
+  gap: 10px;
+}
+
+.xl-emotion-bar{
+  width: 100%;
+  text-align: left;
+  padding: 12px 12px;
+  border-radius: 14px;
+  border: 1px solid rgba(255,255,255,.14);
+  background: rgba(255,255,255,.04);
+  color: var(--text);
+  transition: background .18s ease, border-color .18s ease, transform .06s ease;
+}
+
+.xl-emotion-bar:hover{
+  background: rgba(255,255,255,.07);
+  transform: translateY(-1px);
+}
+
+.xl-emotion-bar.is-active{
+  border-color: rgba(124,92,255,.55);
+  background: rgba(124,92,255,.16);
+  box-shadow: 0 0 0 3px rgba(124,92,255,.12);
+}
+
+/* -----------------------------
+   Analyzer toggle (switch style)
+------------------------------ */
+.xl-analyzer-card{ padding-top: 14px; }
+
+.xl-analyzer-row{
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.xl-analyzer-label-group{ display: flex; align-items: center; gap: 10px; }
+
+.xl-toggle-btn{
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(255,255,255,.18);
+  background: rgba(255,255,255,.05);
+  color: var(--text);
+}
+
+.xl-toggle-circle{
+  width: 38px;
+  height: 22px;
+  border-radius: 999px;
+  position: relative;
+  display: inline-block;
+  background: rgba(255,255,255,.18);
+  border: 1px solid rgba(255,255,255,.18);
+  transition: background .18s ease, border-color .18s ease;
+}
+
+.xl-toggle-circle::after{
+  content: "";
+  width: 18px;
+  height: 18px;
+  border-radius: 999px;
+  position: absolute;
+  top: 1px;
+  left: 1px;
+  background: rgba(255,255,255,.92);
+  transition: transform .18s ease;
+}
+
+/* When you toggle, add .is-on to the button from JS */
+.xl-toggle-btn.is-on .xl-toggle-circle{
+  background: rgba(79,227,193,.28);
+  border-color: rgba(79,227,193,.55);
+}
+.xl-toggle-btn.is-on .xl-toggle-circle::after{
+  transform: translateX(16px);
+}
+
+/* Coach header/body */
+.xl-coach-header{
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin: 10px 0 8px 0;
+}
+
+.xl-coach-body{
+  border-top: 1px solid rgba(255,255,255,.10);
+  padding-top: 12px;
+}
+
+.xl-coach-text{
+  margin: 8px 0 6px 0;
+  color: rgba(255,255,255,.88);
+  line-height: 1.35;
+}
+
+/* Coach Mode row (if you add it) */
+.xl-coach-mode-row{
+  margin-top: 10px;
+  padding: 10px;
+  border-radius: var(--r-md);
+  border: 1px solid rgba(255,255,255,.10);
+  background: rgba(255,255,255,.03);
+}
+
+/* -----------------------------
+   Input card
+------------------------------ */
+.xl-input-card .xl-input{
+  width: 100%;
+  resize: vertical;
+  min-height: 88px;
+  padding: 12px 12px;
+  border-radius: 14px;
+  border: 1px solid rgba(255,255,255,.14);
+  background: rgba(0,0,0,.20);
+  color: var(--text);
+  outline: none;
+  line-height: 1.35;
+}
+
+.xl-input-card .xl-input:focus{
+  border-color: rgba(124,92,255,.55);
+  box-shadow: 0 0 0 3px rgba(124,92,255,.14);
+}
+
+.xl-input-footer{
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+/* Make DELIVER full-width on small screens */
+@media (max-width: 520px){
+  .xl-input-footer{ justify-content: stretch; }
+  .xl-primary-btn{ width: 100%; }
+}
+
+/* -----------------------------
+   Chat bubbles
+------------------------------ */
+.xl-chat-layout{
+  display: grid;
+  grid-template-columns: 1fr; /* default = 1 column */
+  gap: 14px;
+  align-items: start;
+}
+
+/* Only go 2-column on larger screens */
+@media (min-width: 1200px){
+  .xl-chat-layout{
+    grid-template-columns: 1.15fr .85fr;
+  }
+}
+
+/* -----------------------------
+   Modal (Pause)
+------------------------------ */
+.xl-modal{
+  position: fixed;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  z-index: 999;
+}
+
+.xl-modal-backdrop{
+  position: absolute;
+  inset: 0;
+  background: rgba(0,0,0,.55);
+  backdrop-filter: blur(6px);
+}
+
+.xl-modal-dialog{
+  position: relative;
+  width: min(520px, calc(100% - 26px));
+  border-radius: var(--r-lg);
+  border: 1px solid rgba(255,255,255,.12);
+  background: rgba(17,27,45,.92);
+  box-shadow: var(--shadow);
+  padding: 18px;
+}
+
+.xl-modal-dialog h2{
+  margin: 0 0 10px 0;
+  font-size: 20px;
+}
+
+.xl-modal-text{
+  margin: 0 0 14px 0;
+  color: rgba(255,255,255,.88);
+  line-height: 1.35;
+}
+
+.xl-modal-actions{
+  display: grid;
+  gap: 10px;
+}
+
+/* -----------------------------
+   Scrollbar (nice on desktop)
+------------------------------ */
+@media (pointer:fine){
+  .xl-history-list::-webkit-scrollbar{ width: 10px; }
+  .xl-history-list::-webkit-scrollbar-track{ background: rgba(255,255,255,.03); }
+  .xl-history-list::-webkit-scrollbar-thumb{
+    background: rgba(255,255,255,.12);
+    border-radius: 999px;
+  }
+  .xl-history-list::-webkit-scrollbar-thumb:hover{ background: rgba(255,255,255,.18); }
+}

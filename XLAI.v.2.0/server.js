@@ -1,318 +1,467 @@
-// server.js
-// XL AI / EQ Connect backend: Neon DB + OpenAI rephrase + intensity analysis
+// XL AI / EQ Connect backend – rephrasing, intensity, EQ logging
 
-require("dotenv").config();
 const express = require("express");
 const cors = require("cors");
+const path = require("path");
+const dotenv = require("dotenv");
 const { Pool } = require("pg");
 const OpenAI = require("openai");
-const path = require("path");  // ⬅️ ADD THIS LINE
 
-// --- Basic app setup ---
+// Load environment variables (.env)
+dotenv.config();
+
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-app.use(cors());
-app.use(express.json());
-// Serve static frontend files (index.html, chat.html, CSS, JS)
-app.use(express.static(__dirname));
+// --------- OpenAI SETUP ----------
+if (!process.env.OPENAI_API_KEY) {
+  console.warn("⚠️  OPENAI_API_KEY is missing in .env");
+}
+const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
-// Explicit root route -> index.html
-app.get("/", (_req, res) => {
-  res.sendFile(path.join(__dirname, "index.html"));
-});
-// --- Neon / Postgres pool ---
-const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-  ssl: process.env.NODE_ENV === "production" ? { rejectUnauthorized: false } : false,
-});
+// --------- NEON / POSTGRES SETUP ----------
+let pool = null;
 
-// --- OpenAI client (server-side only, key stays hidden) ---
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
-
-// --- Helper: safe JSON parse ---
-function safeJsonParse(text, fallback) {
-  try {
-    return JSON.parse(text);
-  } catch {
-    return fallback;
-  }
+if (!process.env.DATABASE_URL) {
+  console.warn("⚠️  DATABASE_URL is missing in .env – skipping Neon pool init.");
+} else {
+  pool = new Pool({
+    connectionString: process.env.DATABASE_URL,
+    ssl: { rejectUnauthorized: false },
+  });
+  console.log("✅ Neon DB pool created");
 }
 
-// -------------------------
-//  API: Intensity analysis
-// -------------------------
-app.post("/api/analyze-intensity", async (req, res) => {
-  const { text } = req.body || {};
+// --------- EXPRESS MIDDLEWARE ----------
 
-  if (!text || typeof text !== "string") {
-    return res.status(400).json({ error: "Missing 'text' in request body." });
-  }
-// Save a delivered message with full emotional metadata
-// Save a message with emotional metadata
-app.post("/api/send", async (req, res) => {
-  try {
-    const {
-      conversationId,
-      originalText,
-      finalText,
-      preSendEmotion,
-      intensityScore,
-      wasPauseTaken,
-      usedSuggestion,
-      isRepairAttempt,
-      userId,
-    } = req.body || {};
+// ---------- EXPRESS MIDDLEWARE ----------
+// Middleware
+app.use(cors());
+app.use(express.json());
 
-    // Basic validation
-    if (!conversationId || !finalText) {
-      return res
-        .status(400)
-        .json({ error: "conversationId and finalText are required" });
-    }
+// Serve static files from /public
+app.use(express.static(path.join(__dirname, "public")));
 
-    // For now we keep a simple sender / recipient model
-    const senderId = userId || "xx";
-    const recipientId = "partner";
-
-    // Encrypt the final text so we never store raw text without encryption
-    const ciphertext = await encryptText(finalText);
-
-    const result = await pool.query(
-      `
-      INSERT INTO messages (
-        conversation_id,
-        sender_id,
-        recipient_id,
-        ciphertext,
-        original_text,
-        final_text,
-        pre_send_emotion,
-        intensity_score,
-        was_pause_taken,
-        used_suggestion,
-        is_repair_attempt,
-        user_id
-      )
-      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
-      RETURNING id
-      `,
-      [
-        conversationId,
-        senderId,
-        recipientId,
-        ciphertext,
-        originalText || finalText,                         // always keep original
-        finalText,
-        preSendEmotion || null,
-        typeof intensityScore === "number" ? intensityScore : null,
-        Boolean(wasPauseTaken),
-        Boolean(usedSuggestion),
-        Boolean(isRepairAttempt),
-        senderId,
-      ]
-    );
-
-    res.json({ ok: true, id: result.rows[0].id });
-  } catch (err) {
-    console.error("Error in /api/send:", err);
-    res.status(500).json({ error: "Failed to save message" });
-  }
+// Serve main chat UI
+app.get("/", (req, res) => {
+  res.sendFile(path.join(__dirname, "public", "chat.html"));
 });
+
+// Serve internal EQ log UI
+app.get("/eq-log.html", (req, res) => {
+  res.sendFile(path.join(__dirname, "public", "/eq-log.html"));
+});
+
+// Health check (used by smoke tests + uptime checks)
+app.get("/health", (req, res) => {
+  res.status(200).type("text/plain").send("healthy");
+});
+
+// Optional: keep an API version too
+app.get("/api/health", (req, res) => {
+  res.status(200).json({ ok: true });
+});
+
+// ---------- DB INIT (messages table) ----------
+async function initDb() {
+  if (!pool) return;
   try {
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS messages (
+        id BIGSERIAL PRIMARY KEY,
+        conversation_id TEXT NOT NULL,
+        user_id TEXT NOT NULL,
+        original_text TEXT,
+        final_text   TEXT NOT NULL,
+        pre_send_emotion      TEXT,
+        intensity_score DOUBLE PRECISION,
+        was_pause_taken BOOLEAN DEFAULT FALSE,
+        used_suggestion BOOLEAN DEFAULT FALSE,
+        created_at_timestamp   TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      );
+    `);
+    console.log("✅ messages table is ready in Neon.");
+  } catch (err) {
+    console.error("❌ Error initializing DB:", err);
+  }
+}
+async function cleanupOldMessages() {
+  if (!pool) return;
+  try {
+    await pool.query(
+      "DELETE FROM messages WHERE created_at_timestamp < NOW() - INTERVAL '24 hours'"
+    );
+  } catch (e) {
+    console.error("cleanupOldMessages error:", e);
+  }
+}
+setInterval(cleanupOldMessages, 60 * 60 * 1000); // every hour
+
+
+// ---------- HELPERS ----------
+function labelFromScore(score) {
+  if (score == null || Number.isNaN(score)) return "low";
+  if (score < 0.4) return "low";
+  if (score < 0.7) return "medium";
+  return "high";
+}
+
+// ---------- ROUTES ----------
+
+// Health check
+
+
+// 🔹 1) Analyze intensity + get XL AI rephrase suggestion
+app.post("/api/analyze-intensity", async (req, res) => {
+  const { text, tone, emotion, rewriteStrength } = req.body || {};
+  if (!text || !text.trim()) {
+    return res.status(400).json({ error: "Missing text" });
+  }
+
+  const effectiveTone = tone || "calm";
+
+  try {
+    const systemPrompt = `
+You are XL AI, an emotionally intelligent communication assistant focused on producing a single, clean rewrite of the user's message.
+
+Your tasks:
+1) Estimate the emotional intensity of the user's message from 0.0 (very calm) to 1.0 (very intense).
+2) Provide a short label: "low", "medium", or "high".
+3) Produce ONE rewritten version of the user's message and place it in the "suggestion" field. The "suggestion" value MUST contain ONLY the rewritten message text and NOTHING ELSE (no advice, no coaching, no explanations, no extra sentences).
+
+Constraints for the rewrite in "suggestion":
+- Preserve the original meaning and intent; do not introduce new emotional content or new facts.
+- Keep similar length to the original unless a small edit improves clarity.
+- Match the requested tone (calm / professional / low-key) as indicated by the user prompt.
+- Do NOT mention you are an AI or a coach. Do not add preambles or follow-up questions.
+
+Return ONLY a JSON object with exactly this shape and no other commentary:
+{
+  "intensity": number,
+  "label": "low" | "medium" | "high",
+  "suggestion": string
+}
+`.trim();
+
+    const userPrompt = `
+  Tone preference: ${effectiveTone}
+  User emotion chip: ${emotion || "none"}
+  Rewrite strength: ${rewriteStrength || "low"}
+
+  Message:
+  "${text}"
+  `.trim();
+
     const completion = await openai.chat.completions.create({
       model: "gpt-4o-mini",
       messages: [
-        {
-          role: "system",
-          content:
-            "You are a clinical sentiment analysis engine. " +
-            "Respond ONLY with a JSON object: " +
-            '{"intensity_score": number between 0 and 1, "primary_emotion": string}.',
-        },
-        {
-          role: "user",
-          content:
-            `Analyze the following message for urgency and emotional intensity on a scale of 0.0 (calm) to 1.0 (crisis). ` +
-            `Also identify the primary emotion (e.g., Anger, Fear, Joy). Message: "${text}"`,
-        },
+        { role: "system", content: systemPrompt },
+        { role: "user", content: userPrompt },
       ],
+      temperature: 0.4,
+      max_tokens: 220,
     });
 
-    const raw = completion.choices[0]?.message?.content ?? "{}";
-    const parsed = safeJsonParse(raw, {});
-    const intensity = typeof parsed.intensity_score === "number" ? parsed.intensity_score : 0.0;
-    const primaryEmotion =
-      typeof parsed.primary_emotion === "string" ? parsed.primary_emotion : "unknown";
+    const raw = completion.choices?.[0]?.message?.content?.trim() || "";
+    let parsed;
+    try {
+      parsed = JSON.parse(raw);
+    } catch (e) {
+      console.warn("⚠️ Could not parse AI JSON, falling back. Raw:", raw);
+      parsed = {
+        intensity: 0.5,
+        label: "medium",
+        suggestion: "",
+      };
+    }
 
-    return res.json({ intensity, primaryEmotion });
+    const intensityScore =
+      typeof parsed.intensity === "number" ? parsed.intensity : 0.5;
+    const intensityLabel = parsed.label || labelFromScore(intensityScore);
+    const suggestion =
+      typeof parsed.suggestion === "string" ? parsed.suggestion : "";
+
+    const payload = {
+      intensity: {
+        intensity: intensityScore,
+        label: intensityLabel,
+      },
+      suggestion,
+    };
+
+    console.log("[XL AI] /api/analyze-intensity ->", {
+      rewriteStrength: rewriteStrength || "low",
+      payload,
+    });
+    res.json(payload);
   } catch (err) {
-    console.error("❌ OpenAI /api/analyze-intensity error:", err);
-    // Fail-safe: treat as calm so we don't block users
-    return res.status(500).json({ intensity: 0.0, primaryEmotion: "unknown" });
+    console.error("❌ /api/analyze-intensity error:", err);
+    res.status(500).json({
+      error:
+        "XL AI had trouble analyzing that message right now. Please try again.",
+    });
   }
 });
 
-// -------------------------
-//  API: Rephrase + logging
-// -------------------------
-app.post("/api/rephrase", async (req, res) => {
+// Optional: tiny DB health endpoint for quick checks
+app.get("/api/db-health", async (req, res) => {
+  if (!pool) {
+    return res.json({ connected: false, latest: null });
+  }
+
+  try {
+    const r = await pool.query(
+      `SELECT id, created_at_timestamp FROM messages ORDER BY created_at_timestamp DESC LIMIT 1;`
+    );
+    const latest = r.rows[0] || null;
+    res.json({ connected: true, latest });
+  } catch (err) {
+    console.error("[XL AI] /api/db-health error:", err);
+    res.status(500).json({ connected: false, latest: null });
+  }
+});
+
+// 🔹 2) Store final message in Neon (EQ log)
+// 2) Save a message into Neon + return saved row id & timestamp
+app.post("/api/send", async (req, res) => {
+  if (!pool) {
+    return res.status(500).json({ error: "Database is not configured (no DATABASE_URL)" });
+  }
+
+  const isSmoke = req.get("X-Smoke-Test") === "1";
+if (isSmoke) {
+  console.log("[XL AI] Smoke dry-run: skipping DB insert");
+  return res.json({
+    ok: true,
+    dry_run: true,
+    id: null,
+    created_at: new Date().toISOString(),
+  });
+}
+
   const {
-    text,
-    tone,
     conversationId,
+    originalText,
+    finalText,
     preSendEmotion,
     intensityScore,
     wasPauseTaken,
-    isRepairAttempt,
+    usedSuggestion,
     userId,
   } = req.body || {};
 
-  if (!text || !tone) {
-    return res
-      .status(400)
-      .json({ error: "Missing 'text' or 'tone' in request body." });
+  // basic validation – require conversation, user and finalText; originalText may be null for privacy
+  if (!conversationId || !userId || !finalText) {
+    console.log("[XL AI] Skipping insert, missing required fields:", {
+      conversationId,
+      userId,
+      originalText,
+      finalText,
+    });
+    return res.status(400).json({ error: "Missing required fields" });
   }
 
-  const safeConversationId = conversationId || "alex";
-  const safeUserId = userId || "user_A"; // temporary until real auth
-  const safeRecipientId = "coach";
-
-  try {
-    // --- Call OpenAI for rephrase suggestion ---
-    const completion = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
-      messages: [
-        {
-          role: "system",
-          content:
-            "You are XL AI, a relationship communication coach. " +
-            "Given a raw message and a requested tone (calm, professional, or low-key), " +
-            "rewrite the message so it is clear, honest, and emotionally safe. " +
-            "Use first-person 'I' statements when helpful. " +
-            "Respond with ONLY the rewritten message text, no extra commentary.",
-        },
-        {
-          role: "user",
-          content:
-            `Tone: ${tone}\n` +
-            (preSendEmotion
-              ? `User reported feeling: ${preSendEmotion}\n`
-              : "") +
-            `Original message: "${text}"`,
-        },
-      ],
-    });
-
-    const suggestion = completion.choices[0]?.message?.content?.trim() || "";
-
-    if (!suggestion) {
-      console.error("⚠️ OpenAI returned empty suggestion.");
-      return res.status(500).json({
-        error: "XL AI couldn't generate a suggestion right now. Please try again.",
-      });
-    }
-
-    // --- Insert into Neon messages table ---
-    const insertSql = `
+try {
+  const result = await pool.query(
+      `
       INSERT INTO messages (
         conversation_id,
-        sender_id,
-        recipient_id,
-        ciphertext,
+        user_id,
+        original_text,
+        final_text,
+        pre_send_emotion,
+        intensity_score,
+        was_pause_taken,
+        used_suggestion
+      )
+      VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
+      RETURNING id, created_at_timestamp;
+      `,
+      [
+        conversationId,
+        userId,
+        originalText || null,
+        finalText,
+        preSendEmotion || null,
+        typeof intensityScore === "number" ? intensityScore : null,
+        !!wasPauseTaken,
+        !!usedSuggestion,
+      ]
+    );
+
+    const row = result.rows[0];
+    console.log("[XL AI] Saved message:", row);
+    res.json({ ok: true, id: row.id, created_at: row.created_at_timestamp });
+  } catch (err) {
+    console.error("[XL AI] Error inserting message:", err);
+    res.status(500).json({ error: "Failed to save message" });
+  }
+});
+
+// 🔹 3) History for chat + EQ log sidebar
+app.get("/api/history", async (req, res) => {
+  if (!pool) {
+    return res
+      .status(500)
+      .json({ error: "Database is not configured (no DATABASE_URL)." });
+  }
+
+  const conversationId = req.query.conversation || "alex";
+
+  try {
+    const result = await pool.query(
+      `
+      SELECT
+        id,
+        conversation_id,
+        user_id,
         original_text,
         final_text,
         pre_send_emotion,
         intensity_score,
         was_pause_taken,
         used_suggestion,
-        is_repair_attempt,
-        user_id
-      )
-      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
-      RETURNING id;
-    `;
+        created_at_timestamp
+      FROM messages
+      WHERE conversation_id = $1
+      ORDER BY created_at_timestamp DESC
+      LIMIT 100;
+    `,
+      [conversationId]
+    );
 
-    const values = [
-      safeConversationId,
-      safeUserId,                  // sender_id
-      safeRecipientId,             // recipient_id
-      null,                        // ciphertext (future encryption)
-      text,                        // original_text
-      suggestion,                  // final_text
-      preSendEmotion || null,      // pre_send_emotion
-      typeof intensityScore === "number" ? intensityScore : null,
-      !!wasPauseTaken,             // was_pause_taken
-      false,                       // used_suggestion (front-end can update later)
-      !!isRepairAttempt,           // is_repair_attempt
-      safeUserId,                  // user_id (same for now)
-    ];
-
-    try {
-      const dbRes = await pool.query(insertSql, values);
-      console.log("💾 Logged message row id:", dbRes.rows[0]?.id);
-    } catch (dbErr) {
-      console.error("❌ Failed to insert message into Neon:", dbErr);
-      // We don't fail the request for logging errors – user still gets the suggestion.
-    }
-
-    return res.json({ suggestion });
+    res.json({ messages: result.rows });
   } catch (err) {
-    console.error("❌ OpenAI /api/rephrase error:", err);
-    return res.status(500).json({
-      error: "XL AI had trouble generating a suggestion right now. Please try again.",
-    });
+    console.error("❌ /api/history DB error:", err);
+    res.status(500).json({ error: "Failed to load history." });
   }
 });
 
-// -------------------------
-//  Health check (optional)
-// -------------------------
-app.get("/health", (_req, res) => {
-  res.json({ ok: true });
-});
+// 🔹 4) Behavior feedback for the right-hand EQ coach
+app.get("/api/behavior-feedback", async (req, res) => {
+  if (!pool) {
+    return res
+      .status(500)
+      .json({ error: "Database is not configured (no DATABASE_URL)." });
+  }
 
-// -------------------------
-//  DB init + server start
-// -------------------------
-
-async function initDb() {
-  const createSql = `
-    CREATE TABLE IF NOT EXISTS messages (
-      id BIGSERIAL PRIMARY KEY,
-      conversation_id   TEXT NOT NULL,
-      sender_id         TEXT NOT NULL,
-      recipient_id      TEXT NOT NULL,
-      ciphertext        TEXT,
-      original_text     TEXT,
-      final_text        TEXT,
-      pre_send_emotion  TEXT,
-      intensity_score   REAL,
-      was_pause_taken   BOOLEAN DEFAULT FALSE,
-      used_suggestion   BOOLEAN DEFAULT FALSE,
-      is_repair_attempt BOOLEAN DEFAULT FALSE,
-      user_id           TEXT,
-      created_at        TIMESTAMPTZ NOT NULL DEFAULT NOW()
-    );
-  `;
+  const conversationId = req.query.conversation || "alex";
 
   try {
-    await pool.query(createSql);
-    console.log("✅ Neon DB is ready (messages table).");
-  } catch (err) {
-    console.error("❌ Failed to init DB:", err);
-    throw err;
-  }
-}
+    const result = await pool.query(
+      `
+      SELECT intensity_score, pre_send_emotion, created_at_timestamp
+      FROM messages
+      WHERE conversation_id = $1
+      ORDER BY created_at_timestamp DESC
+      LIMIT 50;
+    `,
+      [conversationId]
+    );
 
-initDb()
-  .then(() => {
-    app.listen(PORT, () => {
-      console.log(`🔥 XL AI server listening on port ${PORT}`);
+    const rows = result.rows || [];
+    const recent = rows.filter((r) => r.intensity_score != null);
+
+    let avg = null;
+    if (recent.length > 0) {
+      const sum = recent.reduce(
+        (acc, r) => acc + Number(r.intensity_score || 0),
+        0
+      );
+      avg = sum / recent.length;
+    }
+
+    const riskLevel = labelFromScore(avg);
+
+    // Simple top emotion (use pre_send_emotion column from DB)
+    const emotionCounts = {};
+    for (const r of rows) {
+      if (!r.pre_send_emotion) continue;
+      const e = String(r.pre_send_emotion).toLowerCase();
+      emotionCounts[e] = (emotionCounts[e] || 0) + 1;
+    }
+    let topEmotion = null;
+    let topCount = 0;
+    for (const [e, count] of Object.entries(emotionCounts)) {
+      if (count > topCount) {
+        topCount = count;
+        topEmotion = e;
+      }
+    }
+
+    let coachHint = "Your recent messages look fairly steady.";
+    if (riskLevel === "high") {
+      coachHint =
+        "Tension looks high. Try slowing down, naming how you feel, and asking one curious question instead of defending.";
+    } else if (riskLevel === "medium") {
+      coachHint =
+        "There’s some emotional charge here. Consider one validating sentence before sharing your side.";
+    }
+
+    res.json({
+      feedback: {
+        riskLevel,
+        averageIntensity: avg,
+        topEmotion,
+        coachHint,
+        sampleSize: rows.length,
+      },
     });
-  })
-  .catch((err) => {
-    console.error("Server not started because DB init failed:", err);
-  });
+  } catch (err) {
+    console.error("❌ /api/behavior-feedback DB error:", err);
+    res.status(500).json({ error: "Failed to compute behavior feedback." });
+  }
+});
+
+// 3) Fetch messages for EQ Log
+// 3) Fetch messages for EQ Log
+app.get("/api/messages", async (req, res) => {
+  if (!pool) {
+    return res
+      .status(500)
+      .json({ error: "Database is not configured (no DATABASE_URL)." });
+  }
+
+  // default to "alex" if not provided, but EQ Log will normally pass ?conversation=alex
+  const conversationId = req.query.conversation || "alex";
+
+  try {
+    const result = await pool.query(
+      `
+      SELECT
+        id,
+        conversation_id,
+        user_id,
+        original_text,
+        final_text,
+        pre_send_emotion,
+        intensity_score,
+        was_pause_taken,
+        used_suggestion,
+        created_at_timestamp
+      FROM messages
+      WHERE conversation_id = $1
+      ORDER BY created_at_timestamp DESC
+      LIMIT 200;
+      `,
+      [conversationId]
+    );
+
+    res.json({ ok: true, messages: result.rows });
+  } catch (err) {
+    console.error("[XL AI] /api/messages DB error:", err);
+    res.status(500).json({ error: "Failed to load messages" });
+  }
+});
+// --- Start server ---
+(async () => {
+  if (pool) {
+    await initDb();
+  } else {
+    console.log("⚠️ No pool: DATABASE_URL missing, messages won't save.");
+  }
+ app.listen(PORT, async () => {
+  console.log(`✅ XL AI server listening on port ${PORT}`);
+  await initDb();
+});
+})();

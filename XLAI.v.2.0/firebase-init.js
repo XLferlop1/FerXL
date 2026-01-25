@@ -11,7 +11,7 @@ import {
 // 🔐 1) PASTE YOUR CONFIG FROM FIREBASE CONSOLE HERE
 const firebaseConfig = {
   // <-- replace everything inside with your own keys
-    apiKey: "AIzaSyDSqiKrmk72X6EfxVz7sIR4h2e8rQMgW_c",
+    apiKey: "AIzaSyAfyrRZt-ejb2rZesxhmJYW5LdDVwMMVmE",
     authDomain: "xlai-3497b.firebaseapp.com",
     projectId: "xlai-3497b",
     storageBucket: "xlai-3497b.firebasestorage.app",
