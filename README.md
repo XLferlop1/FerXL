@@ -1,71 +1,64 @@
-# XL AI (XLAI) — Communication Coach App
+# XLAI
 
-## What this is
-XL AI is an app that helps you communicate better. You type what you want to say, and XL AI helps you rewrite it so it sounds clearer, calmer, and more respectful—without changing what you meant.
+XLAI is a Communication Intelligence Platform that coaches users before they send messages.
 
-This is built to help with everyday conversations (partner, family, coworkers, friends), especially when things feel tense.
+The app helps people pause, understand tone and intent, reduce conflict, and rewrite messages while keeping the user in control.
 
-## What XL AI does
-- **Rephrase messages:** turns a rough or emotional message into something clearer and less aggressive.
-- **Tone check:** warns you if your message sounds angry, blaming, insulting, or likely to start a fight.
-- **Suggest better wording:** offers alternative sentences you can copy and send.
-- **Coach modes:**
-  - **Soft mode:** gentle suggestions, low friction.
-  - **High mode:** stronger coaching and can require a short pause before sending if the message is heated.
+## What XLAI is
 
-## What XL AI is NOT
+- Chat-based communication coach
+- Tone and risk analyzer
+- Message rewrite and refine assistant
+- Journal and insights product surface
+- Privacy-first communication tool
+
+## What XLAI is not
+
 - Not therapy
 - Not medical advice
-- Not a crisis service
 - Not legal advice
+- Not a crisis service
 
-If the app detects talk about self-harm, violence, abuse, or emergencies, it should stop normal coaching and show safety resources instead.
+When high-risk language is detected, XLAI stops normal coaching behavior and returns safety-focused responses and resources.
 
-## The main goal (so we don’t get lost)
-**Help people pause, rewrite, and communicate with emotional intelligence—before they send a message they regret.**
+## Implemented engines
 
-Everything we build should support this goal.
+- Communication and AI coaching engine
+- Safety Engine with deterministic blocking for high-risk levels
+- Privacy and Retention Engine with centralized cleanup policy
 
-## How the app works (simple)
-1. You write a message.
-2. XL AI analyzes the tone.
-3. XL AI suggests a better version (rephrase).
-4. You choose what to send (you stay in control).
+## Privacy and retention summary
 
-## Privacy rules (core principle)
-- The app should be **privacy-first**.
-- Messages should **not be kept forever**.
-- No using user messages to train models unless the user **clearly opts in**.
+- Retention policy is centralized and documented in the Privacy docs.
+- Default retention is 24 hours for messages, coach interactions, and journal entries.
+- Journal entries can be explicitly retained longer when requested.
+- No model training on user content unless explicit opt-in exists.
 
-## Current MVP features
-- Chat-style UI
-- Rephrase button
-- Tone/analyzer feedback
-- Coach mode toggle (Soft / High)
-- Basic safety refusal + resources
-- Health endpoint for server checks
+## API summary
 
-## API (basic idea)
-- `GET /health` → returns “healthy”
-- `POST /api/message` → sends a user message and returns:
-  - the coached response
-  - any tone flags
-  - a suggested rewrite (when needed)
+README is intentionally concise.
 
-## Local setup (basic)
-1. Install dependencies:
-   - `npm install`
-2. Start the server:
-   - `npm start`
-3. Open the app in the browser and test sending messages.
+For the complete and current API surface, use:
+- [API documentation](XLAI.v.2.0/docs/API.md)
 
-## Definition of Done (MVP is “working” when)
-- You can type a message and get a response every time.
-- Rephrase works and produces useful rewrites.
-- Tone warnings show up when messages are heated.
-- Soft/High coach mode changes the behavior.
-- Safety cases trigger a refusal + resources.
-- Privacy rules are followed by default.
+## Documentation
 
-## Owner
-Built by Fernando Lopez.
+- [Documentation Index](XLAI.v.2.0/docs/README.md)
+- [Product](XLAI.v.2.0/docs/PRODUCT.md)
+- [Architecture](XLAI.v.2.0/docs/ARCHITECTURE.md)
+- [API documentation](XLAI.v.2.0/docs/API.md)
+- [Communication Intelligence](XLAI.v.2.0/docs/COMMUNICATION_INTELLIGENCE.md)
+- [AI Engine](XLAI.v.2.0/docs/AI_ENGINE.md)
+- [Safety](XLAI.v.2.0/docs/SAFETY.md)
+- [Safety Classification Architecture](XLAI.v.2.0/docs/SAFETY_CLASSIFICATION_ARCHITECTURE.md)
+- [Privacy](XLAI.v.2.0/docs/PRIVACY.md)
+- [Roadmap](XLAI.v.2.0/docs/ROADMAP.md)
+- [Current Checkpoint](XLAI.v.2.0/docs/CHECKPOINT_CURRENT_STATE.md)
+- [Beta Stabilization Checklist](XLAI.v.2.0/docs/BETA_STABILIZATION_CHECKLIST.md)
+- [Beta Readiness Report](XLAI.v.2.0/docs/BETA_READINESS_REPORT.md)
+- [Design Principles](XLAI.v.2.0/docs/DESIGN_PRINCIPLES.md)
+- [Contributing](XLAI.v.2.0/docs/CONTRIBUTING.md)
+
+## Current status
+
+XLAI is in beta with working chat, coaching, analysis, persistence, journal, insights, safety, and privacy-retention foundations. Remaining work is focused on production hardening, identity/auth, testing reliability, and next-step intelligence upgrades.
