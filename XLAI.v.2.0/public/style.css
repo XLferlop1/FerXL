@@ -1,399 +1,1096 @@
 /* =========================================================
-   XL AI – Clean UI CSS (chat.html)
-   - Privacy-first, modern, simple
-   - Works on mobile + desktop
+   XL AI - Unified Stylesheet · Phase 4 Polish
+   - Messaging surface
+   - Coach surface
+   - Insights surface
    ========================================================= */
 
-/* -----------------------------
-   Design tokens
------------------------------- */
-:root{
-  --bg: #0b0f17;
-  --panel: #0f1624;
-  --card: #111b2d;
-  --card2: #0f182a;
-  --border: rgba(255,255,255,.10);
-  --border2: rgba(255,255,255,.16);
-
-  --text: rgba(255,255,255,.92);
-  --muted: rgba(255,255,255,.62);
-  --muted2: rgba(255,255,255,.48);
-
-  --accent: #7c5cff;      /* XL purple */
-  --accent2: #4fe3c1;     /* teal for success */
-  --warn: #ffcc66;
-  --danger: #ff6b6b;
-
-  --shadow: 0 10px 30px rgba(0,0,0,.35);
-  --shadow2: 0 6px 18px rgba(0,0,0,.25);
-
+:root {
+  /* Phase 4: Softer, more soothing color palette */
+  --bg: #0a0f1a;
+  --panel: #111928;
+  --card: #1a2332;
+  --border: rgba(255, 255, 255, 0.08);
+  --border-strong: rgba(255, 255, 255, 0.14);
+  --text: #f0f4ff;
+  --muted: rgba(235, 242, 255, 0.62);
+  --accent: #8b7aff;
+  --accent-soft: rgba(139, 122, 255, 0.12);
+  --accent2: #5ee4c4;
+  --accent-green: #52d9b8;
+  --accent-amber: #f5be5c;
+  --accent-rose: #e67a8f;
+  --danger: #ea556e;
   --r-sm: 10px;
   --r-md: 14px;
   --r-lg: 18px;
-
+  --pad: 18px;
   --gap: 14px;
-  --pad: 16px;
-
-  --font: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji","Segoe UI Emoji";
+  --shadow: 0 12px 32px rgba(0, 0, 0, 0.32);
+  --shadow-soft: 0 4px 16px rgba(0, 0, 0, 0.18);
 }
 
-/* -----------------------------
-   Base / Reset
------------------------------- */
-*{ box-sizing: border-box; }
-html, body{ height: 100%; }
-body{
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
   margin: 0;
-  font-family: var(--font);
-  background: radial-gradient(1200px 700px at 10% 0%, rgba(124,92,255,.16), transparent 55%),
-              radial-gradient(900px 600px at 90% 15%, rgba(79,227,193,.12), transparent 60%),
-              var(--bg);
+  padding: 0;
+  background: radial-gradient(1400px 700px at 10% 0%, #192841 0%, var(--bg) 60%);
   color: var(--text);
+  font-family: "Segoe UI", "SF Pro Text", "Helvetica Neue", Arial, sans-serif;
+  font-size: 15px;
+  line-height: 1.5;
 }
 
-a{ color: inherit; }
-button, textarea{ font-family: inherit; }
-button{ cursor: pointer; }
-button:disabled{ opacity: .55; cursor: not-allowed; }
-
-.hidden{ display: none !important; }
-
-/* -----------------------------
-   Shell / Layout
------------------------------- */
-.xl-root{ min-height: 100vh; }
-
-.xl-shell{
-  width: min(1200px, 100%);
-  margin: 0 auto;
-  padding: 18px;
+.hidden {
+  display: none !important;
 }
 
-.xl-chat-layout{
-  display: grid;
-  grid-template-columns: 1.15fr .85fr;
-  gap: var(--gap);
-  align-items: start;
+button,
+textarea {
+  font: inherit;
 }
 
-/* Mobile: stack */
-@media (max-width: 980px){
-  .xl-chat-layout{
-    grid-template-columns: 1fr;
-  }
-  .xl-shell{
-    padding: 12px;
-  }
+button {
+  cursor: pointer;
 }
 
-/* -----------------------------
-   Panels
------------------------------- */
-.xl-panel{
-  background: rgba(15,22,36,.72);
-  border: 1px solid var(--border);
-  border-radius: var(--r-lg);
-  box-shadow: var(--shadow);
-  overflow: hidden;
+.xl-root {
+  min-height: 100vh;
 }
 
-.xl-panel-header{
-  padding: 18px 18px 10px 18px;
-  border-bottom: 1px solid var(--border);
-  background: linear-gradient(to bottom, rgba(255,255,255,.04), transparent);
-}
-
-.xl-panel-header h1{
+.xl-label {
   margin: 0;
-  font-size: 22px;
-  letter-spacing: .2px;
-}
-
-.xl-subtitle{
-  margin: 6px 0 0 0;
   color: var(--muted);
-  font-size: 13px;
-}
-
-.xl-section-title{
-  margin: 12px 18px 10px 18px;
   font-size: 12px;
-  letter-spacing: .12em;
-  color: var(--muted);
+  letter-spacing: 0.12em;
   text-transform: uppercase;
 }
 
-/* History panel */
-.xl-panel-history{
-  min-height: 74vh;
-  display: flex;
-  flex-direction: column;
+.xl-subtitle {
+  margin: 0;
+  color: var(--muted);
 }
 
-.xl-history-list{
-  padding: 10px 18px 18px 18px;
-  display: flex;
-  flex-direction: column;
+/* -----------------------------
+   Unified app shell
+------------------------------ */
+.xl-app-shell {
+  min-height: 100vh;
+  display: grid;
+  grid-template-rows: auto 1fr;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.xl-app-header {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  display: grid;
+  grid-template-columns: auto 1fr;
   gap: 10px;
-  overflow: auto;
+  align-items: center;
+  padding: calc(10px + env(safe-area-inset-top, 0px)) 12px 10px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(8, 13, 24, 0.92);
+  backdrop-filter: blur(8px);
+}
+
+.xl-app-header h1 {
+  margin: 0;
+  font-size: 24px;
+}
+
+.xl-shell-hint {
+  margin: 6px 0 0 0;
+  color: rgba(233, 241, 255, 0.56);
+  font-size: 12px;
+}
+
+.xl-user-badge {
+  justify-self: end;
+  white-space: nowrap;
+}
+
+.xl-app-header-tabs {
+  grid-column: 1 / -1;
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.xl-app-header-tabs .xl-pill {
+  min-width: 88px;
+  justify-content: center;
+}
+
+.xl-menu-btn {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  border: 1px solid var(--border-strong);
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text);
+  font-size: 20px;
+}
+
+.xl-shell-viewport {
+  overflow: hidden;
+  height: calc(100vh - 108px);
+  touch-action: pan-y;
+}
+
+.xl-shell-track {
+  display: flex;
+  width: 100%;
+  height: 100%;
+  transition: transform 0.28s ease;
+}
+
+.xl-shell-panel {
+  flex: 0 0 100%;
+  width: 100%;
+  height: 100%;
+  overflow-y: auto;
+}
+
+.xl-shell-panel-chat {
+  padding: 0;
+  overflow: hidden; /* thread scrolls internally; composer stays pinned */
+}
+
+.xl-shell-panel-coach,
+.xl-shell-panel-journal {
+  background: rgba(7, 12, 22, 0.35);
+}
+
+.xl-drawer-inline {
   height: 100%;
 }
 
-/* Brain panel */
-.xl-panel-brain{
-  padding: 14px;
-  display: flex;
-  flex-direction: column;
-  gap: var(--gap);
+.xl-drawer-inline .xl-drawer-content {
+  height: auto;
+  min-height: 100%;
 }
 
-/* -----------------------------
-   Cards
------------------------------- */
-.xl-card{
-  background: rgba(17,27,45,.72);
+.xl-chat-list-card {
+  background: rgba(255, 255, 255, 0.03);
   border: 1px solid var(--border);
   border-radius: var(--r-lg);
-  box-shadow: var(--shadow2);
-  padding: var(--pad);
+  padding: 12px;
 }
 
-.xl-card-header{
+.xl-chat-list {
+  display: grid;
+  gap: 8px;
+}
+
+.xl-chat-list-item {
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--text);
+  border-radius: 14px;
+  padding: 11px 13px;
+  text-align: left;
   display: flex;
-  align-items: center;
   justify-content: space-between;
-  gap: 12px;
-  margin-bottom: 10px;
+  gap: 10px;
+  transition: background 180ms ease, border-color 180ms ease;
 }
 
-.xl-label{
-  margin: 0 0 6px 0;
+.xl-chat-list-item span {
+  color: var(--muted);
   font-size: 12px;
-  text-transform: uppercase;
-  letter-spacing: .12em;
+}
+
+.xl-chat-list-item.is-active {
+  border-color: rgba(139, 122, 255, 0.5);
+  background: rgba(139, 122, 255, 0.14);
+}
+
+.xl-chat-list-item:hover {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.12);
+}
+
+/* Conversation list item internals */
+.xl-chat-list-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.xl-chat-list-name {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.xl-chat-list-preview {
+  margin: 0;
+  font-size: 12px;
+  color: var(--muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Phase 4: Chats - Better spacing and readability */
+.xl-chat-list-time {
+  flex-shrink: 0;
+  font-size: 11px;
+  color: rgba(235, 242, 255, 0.42);
+  white-space: nowrap;
+}
+
+.xl-chat-empty-hint {
+  padding: 14px 6px;
+  font-size: 13px;
   color: var(--muted);
 }
 
-#currentToneLabel{
-  margin: 0;
-  font-size: 22px;
-  letter-spacing: .06em;
+/* Phase 4: Bubble wrappers - More breathing room */
+.xl-bubble-wrapper {
+  display: flex;
+  flex-direction: column;
+  max-width: 75%;
+  margin-bottom: 16px;
+}
+
+.xl-bubble-wrapper-self {
+  align-self: flex-end;
+  align-items: flex-end;
+}
+
+.xl-bubble-wrapper-other {
+  align-self: flex-start;
+  align-items: flex-start;
+}
+
+/* Phase 4: Bubble timestamp - Softer, less prominent */
+.xl-bubble-time {
+  font-size: 11px;
+  color: rgba(235, 242, 255, 0.36);
+  margin-top: 4px;
+  padding: 0 6px;
+}
+
+/* Date separator in thread */
+.xl-date-sep {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  text-align: center;
+  font-size: 11px;
+  color: rgba(233, 241, 255, 0.4);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  margin: 8px 0;
+}
+
+.xl-date-sep::before,
+.xl-date-sep::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+/* Phase 4: App menu - Cleaner, more premium */
+.xl-app-menu {
+  position: fixed;
+  inset: 0;
+  z-index: 2500;
+}
+
+.xl-app-menu-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.65);
+  backdrop-filter: blur(4px);
+}
+
+.xl-app-menu-panel {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: min(88vw, 380px);
+  height: 100%;
+  background: linear-gradient(180deg, #121d2f, #0c1520);
+  border-right: 1px solid rgba(255, 255, 255, 0.1);
+  padding: 18px;
+  box-shadow: var(--shadow);
+  display: grid;
+  grid-template-rows: auto 1fr;
+  gap: 16px;
+}
+
+.xl-app-menu-list {
+  display: grid;
+  gap: 8px;
+  align-content: start;
+}
+
+/* Phase 4: Disabled menu items - clearer visual state */
+.xl-disabled-control[disabled] {
+  opacity: 0.5;
+  cursor: not-allowed;
+  justify-content: space-between;
+}
+
+.xl-coming-soon {
+  font-size: 10px;
+  color: rgba(235, 242, 255, 0.48);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  font-weight: 500;
+}
+
+.xl-journal-shell-layout {
+  padding-top: 16px;
 }
 
 /* -----------------------------
-   Pills / Chips / Buttons
+   Main messaging layout
 ------------------------------ */
-.xl-pill-row{
+.xl-messaging-layout {
+  max-width: 880px;
+  margin: 0 auto;
+  height: 100%;
+  display: grid;
+  grid-template-rows: auto 1fr auto auto auto;
+  gap: 10px;
+  padding: 18px;
+  overflow: hidden;
+}
+
+.xl-header {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  padding: 18px;
+}
+
+.xl-header h1 {
+  margin: 0;
+  font-size: 28px;
+}
+
+.xl-header .xl-subtitle {
+  margin-top: 6px;
+  font-size: 13px;
+}
+
+.xl-chat-thread {
+  background: rgba(12, 20, 34, 0.72);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  min-height: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.xl-chat-thread-header {
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.xl-chat-thread-title {
+  margin: 4px 0 0;
+  font-size: 16px;
+}
+
+.xl-empty-state {
+  margin: auto;
+  color: var(--muted);
+}
+
+.xl-history-list {
+  padding: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  overflow-y: auto;
+  flex: 1;
+  min-height: 0;
+}
+
+/* Phase 4: Bubbles - Cleaner, more messaging-like */
+.xl-bubble {
+  padding: 12px 15px;
+  border-radius: 16px;
+  border: 1px solid var(--border);
+  line-height: 1.5;
+}
+
+.xl-bubble-user {
+  background: rgba(139, 122, 255, 0.12);
+  border-color: rgba(139, 122, 255, 0.28);
+}
+
+.xl-bubble-ai {
+  background: rgba(82, 217, 184, 0.08);
+  border-color: rgba(82, 217, 184, 0.22);
+}
+
+/* -----------------------------
+   Inline nudge + chips
+------------------------------ */
+.xl-inline-nudge {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  padding: 10px 12px;
+}
+
+.xl-nudge-content p {
+  margin: 8px 0;
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.xl-nudge-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+/* Phase 4: Emotion chips - Optional, soft, inviting */
+.xl-chip-row {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.xl-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--muted);
+  font-size: 12px;
+  transition: all 160ms ease;
+}
+
+.xl-chip:hover:not(.is-active) {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.12);
+}
+
+.xl-chip.is-active {
+  border-color: rgba(139, 122, 255, 0.45);
+  background: rgba(139, 122, 255, 0.14);
+  color: var(--text);
+  box-shadow: 0 0 0 1px rgba(139, 122, 255, 0.12), 0 2px 12px rgba(139, 122, 255, 0.12);
+}
+
+.xl-chip-dismiss {
+  min-width: 34px;
+  justify-content: center;
+  opacity: 0.7;
+}
+
+.xl-chip-dismiss:hover {
+  opacity: 1;
+}
+
+.xl-link-btn {
+  border: none;
+  background: transparent;
+  color: #a89bff;
+  padding: 0;
+}
+
+/* Phase 4: Composer - Cleaner container */
+.xl-composer {
+  background: rgba(255, 255, 255, 0.025);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  padding: 12px;
+}
+
+.xl-refine-suggestion-card {
+  margin-bottom: 10px;
+  padding: 12px;
+  border-radius: 14px;
+  border: 1px solid rgba(139, 122, 255, 0.35);
+  background: rgba(139, 122, 255, 0.1);
+  display: grid;
+  gap: 8px;
+}
+
+.xl-refine-suggestion-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+/* Phase 4: Coach bar - Human, subtle, helpful guidance */
+.xl-draft-coach-bar {
+  display: flex;
+  align-items: flex-start;
+  justify-content: flex-start;
+  flex-direction: column;
+  gap: 6px;
+  border-radius: 14px;
+  border: 1px solid transparent;
+  padding: 0 12px;
+  margin-bottom: 0;
+  background: rgba(255, 255, 255, 0.025);
+  color: var(--muted);
+  max-height: 0;
+  overflow: hidden;
+  opacity: 0;
+  transform: translateY(2px);
+  pointer-events: none;
+  transition: opacity 200ms ease, transform 200ms ease, border-color 200ms ease, background 200ms ease, max-height 200ms ease, margin-bottom 200ms ease, padding 200ms ease;
+}
+
+.xl-draft-coach-bar.is-visible {
+  max-height: 100px;
+  padding: 10px 12px;
+  margin-bottom: 10px;
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.xl-draft-coach-suggestion {
+  width: 100%;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--text);
+  font-weight: 500;
+}
+
+.xl-draft-coach-tone {
+  font-weight: 400;
+  font-size: 10px;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: var(--muted);
+  opacity: 0.6;
+  margin-top: 2px;
+}
+
+/* Phase 4: Softer, more intentional tone/risk colors */
+.xl-draft-coach-bar.tone-calm,
+.xl-draft-coach-bar.tone-neutral {
+  border-color: rgba(82, 217, 184, 0.25);
+  background: rgba(82, 217, 184, 0.06);
+}
+
+.xl-draft-coach-bar.tone-hopeful {
+  border-color: rgba(82, 217, 184, 0.3);
+  background: rgba(82, 217, 184, 0.08);
+}
+
+.xl-draft-coach-bar.tone-anxious,
+.xl-draft-coach-bar.tone-sad {
+  border-color: rgba(139, 122, 255, 0.28);
+  background: rgba(139, 122, 255, 0.08);
+}
+
+.xl-draft-coach-bar.tone-defensive {
+  border-color: rgba(245, 190, 92, 0.3);
+  background: rgba(245, 190, 92, 0.08);
+}
+
+.xl-draft-coach-bar.tone-tense,
+.xl-draft-coach-bar.risk-medium {
+  border-color: rgba(245, 190, 92, 0.28);
+  background: rgba(245, 190, 92, 0.08);
+}
+
+.xl-draft-coach-bar.tone-urgent,
+.xl-draft-coach-bar.tone-frustrated,
+.xl-draft-coach-bar.risk-high {
+  border-color: rgba(230, 122, 143, 0.3);
+  background: rgba(230, 122, 143, 0.08);
+}
+
+/* Phase 4: Composer row - cleaner button hierarchy */
+.xl-composer-row {
+  display: flex;
+  align-items: flex-end;
+  gap: 10px;
+}
+
+.xl-refine-btn {
+  padding: 11px 14px;
+  min-width: 80px;
+  font-size: 14px;
+  font-weight: 500;
+  opacity: 0.85;
+  transition: opacity 140ms ease;
+}
+
+.xl-refine-btn:hover:not(:disabled) {
+  opacity: 1;
+}
+
+.xl-coach-btn {
+  min-width: 48px;
+  height: 46px;
+  border-radius: 14px;
+  border: 1px solid rgba(139, 122, 255, 0.4);
+  background: rgba(139, 122, 255, 0.12);
+  color: #fff;
+  font-weight: 600;
+  transition: all 140ms ease;
+}
+
+.xl-coach-btn:hover:not(:disabled) {
+  background: rgba(139, 122, 255, 0.18);
+  border-color: rgba(139, 122, 255, 0.5);
+}
+
+/* Phase 4: Inputs - softer focus states */
+.xl-input {
+  width: 100%;
+  border-radius: 14px;
+  border: 1px solid var(--border-strong);
+  background: rgba(0, 0, 0, 0.2);
+  color: var(--text);
+  padding: 11px 14px;
+  outline: none;
+  transition: all 180ms ease;
+}
+
+.xl-input:focus {
+  border-color: rgba(139, 122, 255, 0.6);
+  box-shadow: 0 0 0 3px rgba(139, 122, 255, 0.12);
+  background: rgba(0, 0, 0, 0.28);
+}
+
+/* Phase 4: Primary buttons - softer accent */
+.xl-send-btn,
+.xl-primary-btn {
+  border: 1px solid rgba(139, 122, 255, 0.5);
+  background: linear-gradient(180deg, #8b7aff, #7561ed);
+  color: #fff;
+  border-radius: 14px;
+  padding: 11px 16px;
+  font-weight: 600;
+  font-size: 14px;
+  transition: all 140ms ease;
+  box-shadow: 0 2px 8px rgba(139, 122, 255, 0.18);
+}
+
+.xl-send-btn:hover:not(:disabled),
+.xl-primary-btn:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(139, 122, 255, 0.24);
+}
+
+/* Phase 4: Secondary buttons - softer, cleaner */
+.xl-secondary-btn {
+  border: 1px solid var(--border-strong);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text);
+  border-radius: 14px;
+  padding: 11px 16px;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  font-weight: 500;
+  transition: all 140ms ease;
+}
+
+.xl-secondary-btn:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.18);
+}
+
+/* Phase 4: Pills - refined states */
+.xl-pill {
+  border: 1px solid var(--border-strong);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text);
+  border-radius: 999px;
+  padding: 10px 14px;
+  font-size: 12px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  font-weight: 500;
+  transition: all 160ms ease;
+}
+
+.xl-pill:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.xl-pill-row {
   display: flex;
   flex-wrap: wrap;
+  gap: 10px;
+}
+
+.xl-pill.is-active,
+.xl-pill-primary.is-active {
+  background: var(--accent-soft);
+  border-color: rgba(124, 92, 255, 0.58);
+}
+
+.xl-pill-ghost {
+  background: transparent;
+}
+
+/* -----------------------------
+   Coach surface
+------------------------------ */
+.xl-drawer {
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100vh;
+  z-index: 1000;
+  background: linear-gradient(180deg, #0b1220, #090f1a);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.25s ease;
+}
+
+.xl-drawer:not(.hidden) {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.xl-drawer-backdrop {
+  position: absolute;
+  inset: 0;
+}
+
+.xl-drawer-content {
+  position: relative;
+  z-index: 1;
+  height: 100%;
+  overflow-y: auto;
+  display: grid;
+  grid-template-rows: auto auto 1fr;
+}
+
+.xl-drawer-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px 28px;
+  border-bottom: 1px solid var(--border);
+  background: rgba(8, 14, 25, 0.82);
+  backdrop-filter: blur(8px);
+}
+
+.xl-drawer-header h2 {
+  margin: 8px 0 0 0;
+  font-size: 28px;
+}
+
+.xl-drawer-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.xl-close-btn {
+  border: 1px solid var(--border-strong);
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--text);
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  font-size: 22px;
+}
+
+.xl-coach-chat-panel {
+  padding: 24px 26px 16px;
+  border-bottom: 1px solid var(--border);
+}
+
+.xl-coach-chat-intro {
+  margin-bottom: 14px;
+}
+
+.xl-coach-subtitle {
+  margin-top: 8px;
+  line-height: 1.55;
+}
+
+.xl-coach-thread {
+  background: rgba(7, 12, 22, 0.78);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-lg);
+  padding: 18px;
+  display: grid;
+  gap: 12px;
+  min-height: 340px;
+  max-height: 52vh;
+  overflow-y: auto;
+  box-shadow: var(--shadow);
+}
+
+.xl-coach-message {
+  padding: 14px 16px;
+  border-radius: var(--r-md);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.xl-coach-message-user {
+  border-left: 4px solid rgba(124, 92, 255, 0.8);
+}
+
+.xl-coach-message-ai {
+  border-left: 4px solid rgba(79, 227, 193, 0.8);
+}
+
+.xl-chat-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  margin-bottom: 10px;
+  background: rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.82);
+}
+
+.xl-chat-badge-accent {
+  background: rgba(79, 227, 193, 0.16);
+  color: rgba(79, 227, 193, 1);
+}
+
+.xl-chat-text {
+  margin: 0;
+  line-height: 1.6;
+}
+
+.xl-coach-analysis-panel {
+  margin-top: 12px;
+  background: rgba(255, 255, 255, 0.015);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: var(--r-lg);
+  padding: 12px;
+  display: grid;
+  gap: 10px;
+}
+
+.xl-coach-analysis-panel.hidden,
+.xl-coach-analysis-card.hidden,
+.xl-coach-analysis-mini.hidden,
+.xl-coach-response-card.hidden,
+.xl-response-detail.hidden,
+.xl-response-secondary.hidden {
+  display: none;
+}
+
+/* Phase 4: Coach response cards - More conversational, less report-like */
+.xl-coach-response-card {
+  margin-top: 14px;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 16px;
+  padding: 18px;
+  display: grid;
+  gap: 14px;
+}
+
+.xl-response-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.xl-response-primary {
+  display: grid;
+  gap: 14px;
+}
+
+.xl-response-primary .xl-chat-text {
+  font-size: 15px;
+  line-height: 1.7;
+  margin: 0;
+  color: var(--text);
+}
+
+.xl-response-primary .xl-send-btn {
+  width: fit-content;
+  margin-top: 6px;
+}
+
+.xl-response-secondary {
+  display: grid;
+  gap: 12px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+/* Phase 4: Response details - Softer, more breathing room */
+.xl-response-detail {
+  background: rgba(255, 255, 255, 0.025);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 14px;
+  padding: 12px 14px;
+}
+
+.xl-response-detail-label {
+  margin: 0 0 8px 0;
+  color: rgba(235, 242, 255, 0.62);
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  font-weight: 500;
+}
+
+.xl-response-detail .xl-chat-text {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.xl-response-list {
+  margin: 0;
+  padding-left: 20px;
+  display: grid;
+  gap: 8px;
+}
+
+.xl-response-list li {
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.xl-response-list-numbered {
+  padding-left: 24px;
+}
+
+.xl-response-detail .xl-link-btn {
+  margin-top: 10px;
+}
+
+.xl-response-detail-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.xl-coach-input-row {
+  display: flex;
+  align-items: flex-end;
   gap: 10px;
   margin-top: 10px;
 }
 
-.xl-pill{
-  border: 1px solid var(--border2);
-  background: rgba(255,255,255,.04);
-  color: var(--text);
-  padding: 10px 12px;
-  border-radius: 999px;
-  font-size: 12px;
-  letter-spacing: .06em;
-  text-transform: uppercase;
-  transition: transform .06s ease, background .18s ease, border-color .18s ease, box-shadow .18s ease;
+.xl-coach-input-row .xl-input {
+  min-height: 90px;
+  resize: vertical;
 }
 
-.xl-pill:hover{
-  background: rgba(255,255,255,.07);
-  transform: translateY(-1px);
+.xl-coach-input-row .xl-send-btn {
+  min-width: 150px;
 }
 
-.xl-pill.is-active,
-.xl-pill-primary.is-active{
-  background: rgba(124,92,255,.18);
-  border-color: rgba(124,92,255,.55);
-  box-shadow: 0 0 0 3px rgba(124,92,255,.12);
-}
-
-.xl-pill-ghost{
-  background: transparent;
-  border-color: rgba(255,255,255,.18);
-  color: var(--muted);
-}
-
-.xl-pill-ghost:hover{
-  background: rgba(255,255,255,.05);
-  color: var(--text);
-}
-
-/* Primary / Secondary / Link */
-.xl-primary-btn{
-  border: 1px solid rgba(124,92,255,.70);
-  background: linear-gradient(180deg, rgba(124,92,255,.95), rgba(124,92,255,.74));
-  color: white;
-  padding: 12px 14px;
-  border-radius: 12px;
-  font-weight: 700;
-  letter-spacing: .06em;
-}
-
-.xl-primary-btn:hover{
-  filter: brightness(1.05);
-  box-shadow: 0 0 0 3px rgba(124,92,255,.16);
-}
-
-.xl-secondary-btn{
-  border: 1px solid rgba(255,255,255,.18);
-  background: rgba(255,255,255,.06);
-  color: var(--text);
-  padding: 12px 14px;
-  border-radius: 12px;
-  font-weight: 650;
-}
-
-.xl-secondary-btn:hover{
-  background: rgba(255,255,255,.10);
-}
-
-.xl-link-btn{
-  border: none;
-  background: transparent;
-  color: rgba(124,92,255,.92);
-  padding: 8px 0;
-  font-weight: 650;
-  text-align: left;
-}
-
-.xl-link-btn:hover{
-  text-decoration: underline;
-}
-
-/* Tiny chip */
-.xl-chip{
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  padding: 8px 10px;
-  border-radius: 999px;
-  border: 1px solid rgba(255,255,255,.14);
-  background: rgba(255,255,255,.05);
-  color: var(--muted);
-  font-size: 12px;
-  white-space: nowrap;
-}
-
-/* Suggestion row */
-#aiSuggestionRow{
-  background: rgba(79,227,193,.08);
-  border: 1px solid rgba(79,227,193,.22);
-  border-radius: var(--r-md);
-  padding: 10px;
-  display: none;
+.xl-coach-controls-cluster {
+  display: grid;
   gap: 10px;
+  padding: 10px 16px 22px;
 }
 
-#aiSuggestionText{
-  color: rgba(255,255,255,.90);
-  font-size: 14px;
-  line-height: 1.35;
+.xl-coach-control-card {
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: var(--r-md);
+  padding: 16px;
+}
+
+.xl-coach-controls-inline {
+  display: flex;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.xl-coach-controls-headline,
+.xl-label-inline {
   margin-bottom: 8px;
 }
 
-#useSuggestionBtn{
-  width: 100%;
-  border: 1px solid rgba(79,227,193,.45);
-  background: rgba(79,227,193,.16);
-  color: rgba(255,255,255,.92);
-  padding: 10px 12px;
-  border-radius: 12px;
-  font-weight: 700;
-  letter-spacing: .06em;
+.xl-analyzer-inline {
+  min-width: 170px;
 }
 
-#useSuggestionBtn:hover{
-  background: rgba(79,227,193,.22);
+.xl-drawer-section {
+  margin: 0;
 }
 
-/* Intensity label (small) */
-#intensityLabel{
-  display: inline-flex;
-  align-items: center;
-  padding: 7px 10px;
-  border-radius: 999px;
-  border: 1px solid rgba(255,255,255,.14);
-  background: rgba(255,255,255,.05);
-  color: var(--muted);
-  font-size: 12px;
-  margin-right: 8px;
-}
-
-/* -----------------------------
-   Emotion buttons
------------------------------- */
-.xl-emotion-list{
-  display: grid;
-  gap: 10px;
-}
-
-.xl-emotion-bar{
-  width: 100%;
-  text-align: left;
-  padding: 12px 12px;
-  border-radius: 14px;
-  border: 1px solid rgba(255,255,255,.14);
-  background: rgba(255,255,255,.04);
-  color: var(--text);
-  transition: background .18s ease, border-color .18s ease, transform .06s ease;
-}
-
-.xl-emotion-bar:hover{
-  background: rgba(255,255,255,.07);
-  transform: translateY(-1px);
-}
-
-.xl-emotion-bar.is-active{
-  border-color: rgba(124,92,255,.55);
-  background: rgba(124,92,255,.16);
-  box-shadow: 0 0 0 3px rgba(124,92,255,.12);
-}
-
-/* -----------------------------
-   Analyzer toggle (switch style)
------------------------------- */
-.xl-analyzer-card{ padding-top: 14px; }
-
-.xl-analyzer-row{
+.xl-drawer-row {
   display: flex;
-  align-items: center;
   justify-content: space-between;
-  gap: 10px;
+  align-items: center;
   margin-bottom: 12px;
 }
 
-.xl-analyzer-label-group{ display: flex; align-items: center; gap: 10px; }
+.xl-coach-text {
+  margin: 10px 0;
+  line-height: 1.55;
+}
 
-.xl-toggle-btn{
+#patternSummaryCard {
+  background: rgba(79, 227, 193, 0.08);
+  border-color: rgba(79, 227, 193, 0.2);
+}
+
+#patternInsights {
+  display: grid;
+  gap: 12px;
+}
+
+#patternInsights p {
+  margin: 0;
+  line-height: 1.55;
+}
+
+/* Analyzer toggle */
+.xl-toggle-btn {
   display: inline-flex;
   align-items: center;
   gap: 10px;
   padding: 8px 10px;
   border-radius: 999px;
-  border: 1px solid rgba(255,255,255,.18);
-  background: rgba(255,255,255,.05);
+  border: 1px solid var(--line-soft);
+  background: rgba(255, 255, 255, 0.03);
   color: var(--text);
 }
 
-.xl-toggle-circle{
+.xl-toggle-circle {
   width: 38px;
   height: 22px;
   border-radius: 999px;
   position: relative;
   display: inline-block;
-  background: rgba(255,255,255,.18);
-  border: 1px solid rgba(255,255,255,.18);
-  transition: background .18s ease, border-color .18s ease;
+  background: rgba(255, 255, 255, 0.14);
+  border: 1px solid rgba(255, 255, 255, 0.14);
 }
 
-.xl-toggle-circle::after{
+.xl-toggle-circle::after {
   content: "";
   width: 18px;
   height: 18px;
@@ -401,152 +1098,672 @@ button:disabled{ opacity: .55; cursor: not-allowed; }
   position: absolute;
   top: 1px;
   left: 1px;
-  background: rgba(255,255,255,.92);
-  transition: transform .18s ease;
+  background: rgba(255, 255, 255, 0.95);
+  transition: transform 0.24s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-/* When you toggle, add .is-on to the button from JS */
-.xl-toggle-btn.is-on .xl-toggle-circle{
-  background: rgba(79,227,193,.28);
-  border-color: rgba(79,227,193,.55);
+.xl-toggle-btn.is-on .xl-toggle-circle {
+  background: rgba(82, 217, 184, 0.22);
+  border-color: rgba(82, 217, 184, 0.48);
 }
-.xl-toggle-btn.is-on .xl-toggle-circle::after{
+
+.xl-toggle-btn.is-on .xl-toggle-circle::after {
   transform: translateX(16px);
 }
 
-/* Coach header/body */
-.xl-coach-header{
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  margin: 10px 0 8px 0;
-}
-
-.xl-coach-body{
-  border-top: 1px solid rgba(255,255,255,.10);
-  padding-top: 12px;
-}
-
-.xl-coach-text{
-  margin: 8px 0 6px 0;
-  color: rgba(255,255,255,.88);
-  line-height: 1.35;
-}
-
-/* Coach Mode row (if you add it) */
-.xl-coach-mode-row{
-  margin-top: 10px;
-  padding: 10px;
-  border-radius: var(--r-md);
-  border: 1px solid rgba(255,255,255,.10);
-  background: rgba(255,255,255,.03);
-}
-
 /* -----------------------------
-   Input card
+   Pause modal
 ------------------------------ */
-.xl-input-card .xl-input{
-  width: 100%;
-  resize: vertical;
-  min-height: 88px;
-  padding: 12px 12px;
-  border-radius: 14px;
-  border: 1px solid rgba(255,255,255,.14);
-  background: rgba(0,0,0,.20);
-  color: var(--text);
-  outline: none;
-  line-height: 1.35;
-}
-
-.xl-input-card .xl-input:focus{
-  border-color: rgba(124,92,255,.55);
-  box-shadow: 0 0 0 3px rgba(124,92,255,.14);
-}
-
-.xl-input-footer{
-  display: flex;
-  justify-content: flex-end;
-  gap: 10px;
-  margin-top: 10px;
-}
-
-/* Make DELIVER full-width on small screens */
-@media (max-width: 520px){
-  .xl-input-footer{ justify-content: stretch; }
-  .xl-primary-btn{ width: 100%; }
-}
-
-/* -----------------------------
-   Chat bubbles
------------------------------- */
-.xl-chat-layout{
-  display: grid;
-  grid-template-columns: 1fr; /* default = 1 column */
-  gap: 14px;
-  align-items: start;
-}
-
-/* Only go 2-column on larger screens */
-@media (min-width: 1200px){
-  .xl-chat-layout{
-    grid-template-columns: 1.15fr .85fr;
-  }
-}
-
-/* -----------------------------
-   Modal (Pause)
------------------------------- */
-.xl-modal{
+.xl-modal {
   position: fixed;
   inset: 0;
-  display: grid;
-  place-items: center;
-  z-index: 999;
+  z-index: 2000;
 }
 
-.xl-modal-backdrop{
+.xl-modal-backdrop {
   position: absolute;
   inset: 0;
-  background: rgba(0,0,0,.55);
-  backdrop-filter: blur(6px);
+  background: rgba(0, 0, 0, 0.75);
+  backdrop-filter: blur(8px);
 }
 
-.xl-modal-dialog{
-  position: relative;
-  width: min(520px, calc(100% - 26px));
-  border-radius: var(--r-lg);
-  border: 1px solid rgba(255,255,255,.12);
-  background: rgba(17,27,45,.92);
-  box-shadow: var(--shadow);
+.xl-modal-dialog {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: var(--panel);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 18px;
+  padding: 24px;
+  max-width: 500px;
+  width: 90%;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+}
+
+.xl-modal-dialog h2 {
+  margin: 0 0 12px 0;
+  font-weight: 600;
+}
+
+.xl-modal-text {
+  margin: 0 0 18px 0;
+  line-height: 1.6;
+  color: rgba(255, 255, 255, 0.85);
+}
+
+.xl-modal-actions {
+  display: grid;
+  gap: 12px;
+}
+
+/* -----------------------------
+   Insights page
+------------------------------ */
+.xl-insights-layout {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 32px 20px 80px;
+  display: grid;
+  gap: 24px;
+}
+
+.xl-insights-header {
+  display: grid;
+  gap: 12px;
+}
+
+.xl-insights-header h1 {
+  margin: 0;
+  font-size: clamp(28px, 4.5vw, 44px);
+  letter-spacing: 0.01em;
+  font-weight: 700;
+}
+
+.xl-insights-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 16px;
+}
+
+.xl-insights-card {
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 16px;
   padding: 18px;
 }
 
-.xl-modal-dialog h2{
-  margin: 0 0 10px 0;
-  font-size: 20px;
+.xl-insights-card ul {
+  margin: 12px 0;
+  padding-left: 20px;
+  line-height: 1.7;
 }
 
-.xl-modal-text{
-  margin: 0 0 14px 0;
-  color: rgba(255,255,255,.88);
-  line-height: 1.35;
+.xl-insights-table-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 14px;
 }
 
-.xl-modal-actions{
-  display: grid;
-  gap: 10px;
+.xl-table-wrap {
+  overflow-x: auto;
+}
+
+.xl-insights-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+
+.xl-insights-table th,
+.xl-insights-table td {
+  text-align: left;
+  padding: 12px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  vertical-align: top;
+}
+
+.xl-insights-table th {
+  color: rgba(255, 255, 255, 0.7);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  font-size: 11px;
+}
+
+.xl-insights-table td:nth-child(2) {
+  min-width: 280px;
+  color: rgba(255, 255, 255, 0.88);
+  line-height: 1.65;
 }
 
 /* -----------------------------
-   Scrollbar (nice on desktop)
+   Journal
 ------------------------------ */
-@media (pointer:fine){
-  .xl-history-list::-webkit-scrollbar{ width: 10px; }
-  .xl-history-list::-webkit-scrollbar-track{ background: rgba(255,255,255,.03); }
-  .xl-history-list::-webkit-scrollbar-thumb{
-    background: rgba(255,255,255,.12);
+.xl-journal-controls {
+  display: grid;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.xl-journal-select {
+  width: 100%;
+  border-radius: 14px;
+  border: 1px solid var(--line-soft);
+  background: rgba(0, 0, 0, 0.18);
+  color: var(--text);
+  padding: 11px 14px;
+}
+
+.xl-journal-actions {
+  margin-top: 14px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.xl-journal-analysis-grid {
+  display: grid;
+  gap: 12px;
+}
+
+.xl-journal-analysis-item {
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 16px;
+  padding: 14px;
+}
+
+.xl-journal-analysis-item p {
+  margin: 0;
+  line-height: 1.65;
+}
+
+.xl-journal-list {
+  display: grid;
+  gap: 16px;
+}
+
+.xl-journal-entry-card {
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 16px;
+  padding: 16px;
+  display: grid;
+  gap: 12px;
+}
+
+.xl-journal-entry-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.xl-journal-entry-text {
+  margin: 0;
+  line-height: 1.7;
+}
+
+.xl-journal-entry-grid {
+  display: grid;
+  gap: 8px;
+  color: rgba(255, 255, 255, 0.85);
+}
+
+/* -----------------------------
+   Premium polish overrides
+------------------------------ */
+:root {
+  --space-sm: 8px;
+  --space-md: 16px;
+  --space-lg: 28px;
+  --r-card: 18px;
+  --r-pill: 999px;
+  --surface-1: rgba(255, 255, 255, 0.035);
+  --surface-2: rgba(255, 255, 255, 0.055);
+  --line-soft: rgba(255, 255, 255, 0.09);
+  --line-faint: rgba(255, 255, 255, 0.05);
+  --text-secondary: rgba(233, 241, 255, 0.74);
+}
+
+html,
+body {
+  font-family: "Avenir Next", "SF Pro Display", "SF Pro Text", "Helvetica Neue", sans-serif;
+  line-height: 1.45;
+}
+
+body {
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+.xl-page-surface {
+  background:
+    radial-gradient(1100px 620px at 8% -8%, rgba(124, 92, 255, 0.2) 0%, rgba(124, 92, 255, 0) 54%),
+    radial-gradient(900px 560px at 98% 0%, rgba(79, 227, 193, 0.14) 0%, rgba(79, 227, 193, 0) 52%),
+    #070c15;
+}
+
+.xl-page-layout {
+  padding-left: max(18px, env(safe-area-inset-left, 0px));
+  padding-right: max(18px, env(safe-area-inset-right, 0px));
+  max-width: 1080px;
+}
+
+.xl-user-badge,
+.xl-page-user {
+  border-radius: var(--r-pill);
+  background: rgba(124, 92, 255, 0.16);
+  border-color: rgba(124, 92, 255, 0.32);
+  color: rgba(245, 245, 255, 0.96);
+}
+
+.xl-shell-viewport,
+.xl-shell-panel,
+.xl-history-list,
+.xl-coach-thread {
+  -webkit-overflow-scrolling: touch;
+}
+
+.xl-shell-viewport {
+  touch-action: pan-y;
+}
+
+.xl-menu-btn,
+.xl-close-btn {
+  border-radius: 14px;
+  border-color: var(--line-soft);
+  background: rgba(255, 255, 255, 0.07);
+}
+
+.xl-app-menu-backdrop {
+  animation: xlFadeIn 180ms ease;
+}
+
+.xl-app-menu-panel {
+  width: min(84vw, 350px);
+  padding: var(--space-md);
+  gap: var(--space-md);
+  border-right: 1px solid var(--line-faint);
+  transform: translateX(-16px);
+  opacity: 0;
+  animation: xlMenuSlideIn 220ms cubic-bezier(0.2, 0.9, 0.2, 1) forwards;
+}
+
+.xl-app-menu-list {
+  gap: 12px;
+}
+
+.xl-disabled-control[disabled] {
+  opacity: 0.5;
+  color: rgba(233, 241, 255, 0.55);
+}
+
+.xl-coming-soon {
+  text-transform: lowercase;
+  letter-spacing: 0.04em;
+}
+
+.xl-chat-list-card,
+.xl-chat-thread,
+.xl-composer,
+.xl-inline-nudge,
+.xl-coach-control-card,
+.xl-coach-thread,
+.xl-insights-card,
+.xl-journal-entry-card,
+.xl-journal-analysis-item,
+.xl-response-detail,
+.xl-coach-response-card,
+.xl-coach-analysis-panel {
+  border-radius: var(--r-card);
+  border: 1px solid var(--line-faint);
+  background: var(--surface-1);
+  box-shadow: 0 10px 34px rgba(0, 0, 0, 0.22);
+}
+
+.xl-history-list {
+  padding: var(--space-md);
+  gap: var(--space-md);
+}
+
+.xl-bubble {
+  border-radius: 16px;
+  border: 1px solid transparent;
+  box-shadow: 0 5px 16px rgba(0, 0, 0, 0.18);
+}
+
+.xl-bubble-user {
+  background: rgba(124, 92, 255, 0.22);
+  border-color: rgba(124, 92, 255, 0.35);
+}
+
+.xl-bubble-ai {
+  background: rgba(79, 227, 193, 0.17);
+  border-color: rgba(79, 227, 193, 0.3);
+}
+
+.xl-inline-nudge {
+  padding: 12px 14px;
+}
+
+.xl-response-primary,
+.xl-response-secondary {
+  gap: var(--space-md);
+}
+
+.xl-response-detail {
+  padding: 12px 14px;
+}
+
+.xl-response-detail-highlight {
+  border-color: rgba(139, 122, 255, 0.35);
+  background: linear-gradient(180deg, rgba(139, 122, 255, 0.14), rgba(139, 122, 255, 0.08));
+  box-shadow: 0 0 0 1px rgba(139, 122, 255, 0.08), 0 8px 20px rgba(52, 33, 120, 0.18);
+}
+
+.xl-response-detail-highlight .xl-response-detail-label {
+  color: rgba(239, 232, 255, 0.92);
+  font-size: 11.5px;
+  font-weight: 600;
+}
+
+.xl-response-detail-highlight .xl-response-list li {
+  font-size: 14.5px;
+}
+
+.xl-drawer-header {
+  padding: 20px var(--space-lg);
+  border-bottom-color: var(--line-faint);
+}
+
+.xl-coach-chat-panel {
+  padding: var(--space-lg);
+  border-bottom-color: var(--line-faint);
+}
+
+.xl-coach-input-row {
+  gap: 12px;
+  margin-top: var(--space-md);
+}
+
+.xl-coach-input-row .xl-input {
+  min-height: 110px;
+}
+
+.xl-coach-message {
+  border: none;
+  background: rgba(255, 255, 255, 0.045);
+}
+
+.xl-coach-message-user {
+  box-shadow: inset 0 0 0 1px rgba(124, 92, 255, 0.24);
+}
+
+.xl-coach-message-ai {
+  box-shadow: inset 0 0 0 1px rgba(79, 227, 193, 0.22);
+}
+
+.xl-input,
+.xl-journal-select {
+  border-radius: 16px;
+  border: 1px solid var(--line-soft);
+  background: rgba(5, 11, 20, 0.62);
+  transition: border-color 180ms ease, box-shadow 180ms ease, background 180ms ease;
+}
+
+.xl-input:hover,
+.xl-journal-select:hover {
+  border-color: rgba(255, 255, 255, 0.19);
+}
+
+.xl-input:focus,
+.xl-journal-select:focus {
+  border-color: rgba(124, 92, 255, 0.62);
+  box-shadow: 0 0 0 3px rgba(124, 92, 255, 0.22);
+  background: rgba(5, 11, 20, 0.82);
+}
+
+.xl-journal-textarea {
+  min-height: 240px;
+  line-height: 1.7;
+  padding: 16px;
+  resize: vertical;
+}
+
+.xl-journal-actions,
+.xl-journal-controls {
+  margin-top: var(--space-md);
+}
+
+.xl-journal-list {
+  gap: var(--space-md);
+  position: relative;
+}
+
+.xl-journal-entry-card {
+  position: relative;
+  padding: var(--space-md);
+}
+
+.xl-journal-entry-card::before {
+  content: "";
+  position: absolute;
+  left: -12px;
+  top: 18px;
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: rgba(124, 92, 255, 0.95);
+  box-shadow: 0 0 0 5px rgba(124, 92, 255, 0.15);
+}
+
+.xl-journal-entry-grid {
+  gap: 10px;
+  color: var(--text-secondary);
+}
+
+.xl-journal-entry-grid strong {
+  color: rgba(245, 248, 255, 0.88);
+  font-weight: 600;
+}
+
+.xl-insight-summary-card {
+  background: linear-gradient(180deg, rgba(82, 217, 184, 0.1), rgba(82, 217, 184, 0.03));
+}
+
+.xl-insights-grid {
+  gap: var(--space-md);
+}
+
+.xl-insights-table-header {
+  margin-bottom: var(--space-md);
+}
+
+.xl-table-wrap {
+  overflow-x: auto;
+  border-radius: 16px;
+}
+
+.xl-insights-table {
+  border-collapse: separate;
+  border-spacing: 0 10px;
+  min-width: 760px;
+}
+
+.xl-insights-table th,
+.xl-insights-table td {
+  border: none;
+  padding: 12px 14px;
+}
+
+.xl-insights-table tbody tr td {
+  background: rgba(255, 255, 255, 0.025);
+  border-top: 1px solid var(--line-faint);
+  border-bottom: 1px solid var(--line-faint);
+}
+
+.xl-insights-table tbody tr td:first-child {
+  border-left: 1px solid var(--line-faint);
+  border-top-left-radius: 14px;
+  border-bottom-left-radius: 14px;
+}
+
+.xl-insights-table tbody tr td:last-child {
+  border-right: 1px solid var(--line-faint);
+  border-top-right-radius: 12px;
+  border-bottom-right-radius: 12px;
+}
+
+.xl-send-btn,
+.xl-primary-btn,
+.xl-secondary-btn,
+.xl-pill,
+.xl-link-btn,
+.xl-chat-list-item,
+.xl-chip,
+.xl-toggle-btn,
+.xl-menu-btn,
+.xl-close-btn {
+  transition: all 190ms ease;
+}
+
+.xl-send-btn,
+.xl-primary-btn {
+  border-radius: var(--r-pill);
+  border-color: rgba(124, 92, 255, 0.42);
+  background: linear-gradient(145deg, #9a86ff 0%, #6f56f3 50%, #5f48dd 100%);
+  box-shadow: 0 8px 18px rgba(72, 52, 168, 0.42);
+}
+
+.xl-send-btn:hover,
+.xl-primary-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 12px 24px rgba(72, 52, 168, 0.5);
+}
+
+.xl-send-btn:active,
+.xl-primary-btn:active,
+.xl-secondary-btn:active,
+.xl-pill:active,
+.xl-menu-btn:active,
+.xl-close-btn:active {
+  transform: translateY(0);
+}
+
+.xl-secondary-btn {
+  border-radius: var(--r-pill);
+  border-color: var(--line-soft);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.xl-secondary-btn:hover {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.18);
+}
+
+.xl-pill {
+  border-radius: var(--r-pill);
+}
+
+.xl-insights-header h1 {
+  font-weight: 760;
+  letter-spacing: -0.018em;
+}
+
+.xl-insights-header .xl-subtitle {
+  max-width: 700px;
+}
+
+@keyframes xlMenuSlideIn {
+  from {
+    transform: translateX(-16px);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+@keyframes xlFadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* eq-log table fallback */
+table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+th,
+td {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  padding: 8px;
+  vertical-align: top;
+}
+
+/* -----------------------------
+   Responsive
+------------------------------ */
+@media (max-width: 840px) {
+  .xl-messaging-layout {
+    padding: 10px;
+  }
+
+  .xl-chat-thread {
+    min-height: 45vh;
+    max-height: 52vh;
+  }
+
+  .xl-coach-chat-panel {
+    padding: 20px 14px 14px;
+  }
+
+  .xl-coach-thread {
+    min-height: 260px;
+    max-height: 44vh;
+  }
+
+  .xl-coach-input-row {
+    display: grid;
+  }
+
+  .xl-coach-input-row .xl-send-btn {
+    min-width: 0;
+  }
+
+  .xl-coach-controls-inline {
+    display: grid;
+  }
+
+  .xl-coach-controls-cluster {
+    padding: 8px 10px 14px;
+  }
+
+  .xl-insights-layout {
+    padding: 14px 10px 28px;
+  }
+}
+
+@media (pointer: fine) {
+  .xl-history-list::-webkit-scrollbar,
+  .xl-coach-thread::-webkit-scrollbar {
+    width: 10px;
+  }
+
+  .xl-history-list::-webkit-scrollbar-thumb,
+  .xl-coach-thread::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.16);
     border-radius: 999px;
   }
-  .xl-history-list::-webkit-scrollbar-thumb:hover{ background: rgba(255,255,255,.18); }
 }

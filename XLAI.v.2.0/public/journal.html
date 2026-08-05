@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>XL AI · Journal</title>
+    <link rel="stylesheet" href="/style.css" />
+  </head>
+  <body class="xl-root xl-page-surface xl-journal-page">
+    <main class="xl-insights-layout xl-page-layout">
+      <header class="xl-insights-header">
+        <div class="xl-pill-row">
+          <a href="/chat.html" class="xl-secondary-btn">Back to Chat</a>
+          <a href="/insights.html" class="xl-secondary-btn">Insights</a>
+          <span id="journalUserBadge" class="xl-chip xl-page-user">User: loading...</span>
+        </div>
+        <h1>Journal</h1>
+        <p class="xl-subtitle">Private reflection for communication growth and self-awareness.</p>
+      </header>
+
+      <section class="xl-insights-card">
+        <p class="xl-label">New Entry</p>
+        <textarea
+          id="journalEntryInput"
+          class="xl-input xl-journal-textarea"
+          rows="8"
+          placeholder="What happened, how did it affect you, and what do you want to communicate differently next time?"
+        ></textarea>
+
+        <div class="xl-journal-controls">
+          <label for="journalMood" class="xl-label">Mood (optional)</label>
+          <select id="journalMood" class="xl-journal-select">
+            <option value="">No mood selected</option>
+            <option value="calm">Calm</option>
+            <option value="anxious">Anxious</option>
+            <option value="frustrated">Frustrated</option>
+            <option value="sad">Sad</option>
+            <option value="hopeful">Hopeful</option>
+            <option value="conflicted">Conflicted</option>
+            <option value="grateful">Grateful</option>
+          </select>
+        </div>
+
+        <div class="xl-journal-actions">
+          <button id="journalSaveBtn" class="xl-primary-btn">Save Entry</button>
+          <span id="journalStatus" class="xl-subtitle"></span>
+        </div>
+      </section>
+
+      <section id="journalLatestAnalysis" class="xl-insights-card hidden">
+        <p class="xl-label">Reflection Analyzer</p>
+        <div id="journalAnalysisContent" class="xl-journal-analysis-grid"></div>
+      </section>
+
+      <section class="xl-insights-card xl-timeline-card">
+        <div class="xl-insights-table-header">
+          <p class="xl-label">Previous Entries</p>
+          <button id="journalRefreshBtn" class="xl-secondary-btn">Refresh</button>
+        </div>
+        <div id="journalEntriesList" class="xl-journal-list">
+          <p class="xl-subtitle">Loading entries...</p>
+        </div>
+      </section>
+    </main>
+
+    <script src="/beta-config.js"></script>
+    <script src="/journal.js"></script>
+  </body>
+</html>

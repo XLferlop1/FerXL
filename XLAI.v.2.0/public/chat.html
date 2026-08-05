@@ -4,234 +4,327 @@
     <meta charset="UTF-8" />
     <title>XL AI Coach · Conversation</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <link rel="stylesheet" href="/style.css" />
+    <link rel="stylesheet" href="/style.css" />
   </head>
 
   <body class="xl-root">
-    <main class="xl-shell xl-chat-layout">
-      <!-- Left side: conversation history -->
-      <section class="xl-panel xl-panel-history">
-        <header class="xl-panel-header">
-          <div>
-            <h1>XL</h1>
-            <p class="xl-subtitle">Private · 24h auto delete · EQ Chat</p>
-          </div>
-        </header>
-
-        <h2 class="xl-section-title">Conversation history</h2>
-        <div id="chatHistory" class="xl-history-list">
-          <!-- bubbles get inserted here by chat.js -->
+    <main class="xl-app-shell">
+      <header class="xl-app-header">
+        <button id="menuToggleBtn" class="xl-menu-btn" aria-label="Open menu">☰</button>
+        <div>
+          <h1>XL</h1>
+          <p class="xl-subtitle">Private · Communication growth app</p>
+          <p class="xl-shell-hint">Swipe left for Coach · Swipe right for Journal</p>
         </div>
-      </section>
+        <span id="currentUserBadge" class="xl-chip xl-user-badge">User: loading...</span>
+        <nav class="xl-app-header-tabs" aria-label="Primary sections">
+          <button id="tabChats" class="xl-pill xl-pill-primary is-active" data-nav-view="chats" type="button">Chats</button>
+          <button id="tabCoach" class="xl-pill xl-pill-primary" data-nav-view="coach" type="button">Coach</button>
+          <button id="tabJournal" class="xl-pill xl-pill-primary" data-nav-view="journal" type="button">Journal</button>
+        </nav>
+      </header>
 
-      <!-- Right side: brain controls -->
-      <section class="xl-panel xl-panel-brain">
-        <!-- Tone + suggestion pills -->
-        <section class="xl-card xl-tone-card">
-          <header class="xl-card-header">
-            <div>
-              <p class="xl-label">Current tone</p>
-              <h2 id="currentToneLabel">CALM</h2>
+      <section class="xl-shell-viewport" id="shellViewport">
+        <div class="xl-shell-track" id="shellTrack">
+          <section class="xl-shell-panel xl-shell-panel-coach" data-panel="coach">
+            <div id="coachDrawer" class="xl-drawer-inline">
+              <div class="xl-drawer-content">
+                <header class="xl-drawer-header">
+                  <div>
+                    <p class="xl-label">Private coach workspace</p>
+                    <h2>XL AI Coach</h2>
+                  </div>
+                </header>
+
+                <section class="xl-coach-chat-panel">
+          <div class="xl-coach-chat-intro">
+            <p class="xl-label">Conversation first</p>
+            <p class="xl-coach-subtitle">Ask for advice, rewrites, or draft analysis. XL will detect intent and answer with the right coaching style.</p>
+          </div>
+
+          <div id="coachChatThread" class="xl-coach-thread">
+            <div class="xl-coach-message xl-coach-message-user" id="coachDraftCard">
+              <span class="xl-chat-badge">Draft</span>
+              <p class="xl-chat-text">No draft yet. Use the composer or ask a coaching question below.</p>
             </div>
-          </header>
-
-          <div class="xl-pill-row">
-            <button
-              id="toneCalm"
-              class="xl-pill xl-pill-primary is-active"
-              data-tone-btn
-              data-tone="calm"
-            >
-              CALM
-            </button>
-            <button
-              id="toneProfessional"
-              class="xl-pill xl-pill-primary"
-              data-tone-btn
-              data-tone="professional"
-            >
-              PROFESSIONAL
-            </button>
-            <button
-              id="toneLowKey"
-              class="xl-pill xl-pill-primary"
-              data-tone-btn
-              data-tone="low-key"
-            >
-              LOW-KEY
-            </button>
           </div>
 
-          <div id="aiSuggestionRow" style="display:none; margin-top:8px;">
-  <div id="aiSuggestionText"></div>
-          <button id="useSuggestionBtn">> USE THIS VERSION</button>
-          <button id="rephraseButtonTop" class="xl-secondary-btn" type="button">REPHRASE</button>
-          </div>
+          <div id="coachResponseCard" class="xl-coach-response-card hidden">
+            <div class="xl-response-header">
+              <span class="xl-chat-badge xl-chat-badge-accent">Coach Response</span>
+              <span id="coachIntentLabel" class="xl-chip">Intent: advice</span>
+            </div>
             
-            <button
-              id="clearSuggestionButton"
-              class="xl-pill xl-pill-ghost"
-              type="button"
-            >
-              CLEAR
-            </button>
-          </div>
-        </section>
+            <div class="xl-response-primary">
+              <div id="coachQuickReadSection" class="xl-response-detail hidden">
+                <p class="xl-response-detail-label">Coach</p>
+                <p id="coachQuickReadText" class="xl-chat-text"></p>
+              </div>
 
-        <!-- Emotion slider -->
-        <section class="xl-card">
-          <h2 class="xl-section-title">HOW ARE YOU FEELING RIGHT NOW?</h2>
-          <div class="xl-emotion-list">
-            <button
-              class="xl-emotion-bar"
-              data-emotion-btn
-              data-emotion="calm"
-            >
-              <span>Calm</span>
-            </button>
-            <button
-              class="xl-emotion-bar"
-              data-emotion-btn
-              data-emotion="anxious"
-            >
-              <span>Anxious</span>
-            </button>
-            <button
-              class="xl-emotion-bar"
-              data-emotion-btn
-              data-emotion="frustrated"
-            >
-              <span>Frustrated</span>
-            </button>
-            <button
-              class="xl-emotion-bar"
-              data-emotion-btn
-              data-emotion="sad"
-            >
-              <span>Sad</span>
-            </button>
-            <button
-              class="xl-emotion-bar"
-              data-emotion-btn
-              data-emotion="hopeful"
-            >
-              <span>Hopeful</span>
-            </button>
-          </div>
-        </section>
+              <div id="coachWhatToDoSection" class="xl-response-detail hidden">
+                <p class="xl-response-detail-label">What To Do</p>
+                <ul id="coachWhatToDoList" class="xl-response-list"></ul>
+              </div>
 
-        <!-- Analyzer + coach feedback -->
-        <section class="xl-card xl-analyzer-card">
-          <div class="xl-analyzer-row">
-            <div class="xl-analyzer-label-group">
-              <p class="xl-label">Analyzer</p>
+              <div id="coachWhatToSaySection" class="xl-response-detail xl-response-detail-highlight hidden">
+                <p class="xl-response-detail-label">Suggestion</p>
+                <ol id="coachWhatToSayList" class="xl-response-list xl-response-list-numbered"></ol>
+              </div>
+
+              <div id="coachWhenToUseEachSection" class="xl-response-detail hidden">
+                <p class="xl-response-detail-label">Softer version</p>
+                <ul id="coachWhenToUseEachList" class="xl-response-list"></ul>
+              </div>
+
+              <button id="useSuggestionBtn" class="xl-send-btn hidden">Use this version</button>
             </div>
-            <button id="analyzerToggleBtn" class="xl-toggle-btn" type="button">
-              <span id="analyzerStatusCircle" class="xl-toggle-circle"></span>
-              <span id="analyzerStatusLabel">ON</span>
-              <span id="analyzerLabel" class="xl-chip">ANALYZER</span>
-            </button>
-            <div class="xl-coach-mode-row">
-  <p class="xl-label">Coach mode</p>
 
-  <div class="xl-pill-row">
-    <button id="coachModeSoftBtn" class="xl-pill xl-pill-primary is-active" type="button">
-      SOFT
-    </button>
-
-    <button id="coachModeHighBtn" class="xl-pill xl-pill-primary" type="button">
-      HIGH
-    </button>
-
-    <span id="coachModeLabel" >SOFT </span>
-  </div>
-</div>
-
-          <div class="xl-coach-header">
-            <span class="xl-chip" id="intensityLabel" > Medium intensity</span>
+            <div id="coachResponseSecondary" class="xl-response-secondary hidden">
+              <div id="coachRisksSection" class="xl-response-detail hidden">
+                <div class="xl-response-detail-row">
+                  <span id="coachRiskBadge" class="xl-chip"></span>
+                </div>
+              </div>
+              <div id="coachInsightSection" class="xl-response-detail hidden">
+                <p class="xl-response-detail-label">Note</p>
+                <p id="coachInsightText" class="xl-chat-text"></p>
+              </div>
+              <div id="coachRewriteSection" class="xl-response-detail hidden">
+                <p class="xl-response-detail-label">How you could say it better</p>
+                <p id="coachRewriteText" class="xl-chat-text"></p>
+                <button id="useRewriteBtn" class="xl-link-btn">Use this</button>
+              </div>
+              <div id="coachPrincipleSection" class="xl-response-detail hidden">
+                <p class="xl-response-detail-label">Principle</p>
+                <p id="coachPrincipleText" class="xl-chat-text"></p>
+              </div>
+            </div>
           </div>
 
-          <div class="xl-coach-body">
-            <p class="xl-label">XL AI Coach</p>
-            <p id="coachHintText" class="xl-coach-text">
-              Your tone has some heat, but you’re still in a coaching zone.
-              Try turning one accusation into an “I feel…” statement.
-            </p>
-            <button
-              id="refreshCoachButton"
-              type="button"
-              class="xl-link-btn"
-            >
-              Refresh coach feedback
-            </button>
+          <div class="xl-coach-input-row">
+            <textarea id="coachInput" class="xl-input" placeholder="Ask XL Coach for advice or a rewrite..." rows="3"></textarea>
+            <button id="coachSubmitBtn" class="xl-send-btn">Ask Coach</button>
           </div>
         </section>
 
-        <!-- Input + deliver -->
-        <section class="xl-card xl-input-card">
-          <label for="messageInput" class="xl-label">
-            Type your message below:
-          </label>
-          <textarea
-            id="messageInput"
-            class="xl-input"
-            rows="3"
-            placeholder="Type…"
-          ></textarea>
+        <div class="xl-coach-controls-cluster">
+          <section class="xl-drawer-section xl-coach-control-card">
+            <div class="xl-drawer-row">
+              <p class="xl-label">Current tone</p>
+              <h3 id="currentToneLabel">CALM</h3>
+            </div>
+            <div class="xl-pill-row">
+              <button id="toneCalm" class="xl-pill xl-pill-primary is-active" data-tone-btn data-tone="calm">CALM</button>
+              <button id="toneProfessional" class="xl-pill xl-pill-primary" data-tone-btn data-tone="professional">PROFESSIONAL</button>
+              <button id="toneLowKey" class="xl-pill xl-pill-primary" data-tone-btn data-tone="low-key">LOW-KEY</button>
+            </div>
+          </section>
 
-          <p class="xl-subtitle" style="margin-top:10px;">
-  XLAI is a communication coach — not therapy. Avoid sharing sensitive personal info.
-</p>
+          <section class="xl-drawer-section xl-coach-control-card">
+            <div class="xl-coach-controls-headline">
+              <p class="xl-label">Coach settings</p>
+            </div>
+            <div class="xl-coach-controls-inline">
+              <div>
+                <p class="xl-label xl-label-inline">Coach mode</p>
+                <div class="xl-pill-row">
+                  <button id="coachModeSoftBtn" class="xl-pill xl-pill-primary is-active">SOFT</button>
+                  <button id="coachModeDirectBtn" class="xl-pill xl-pill-primary">DIRECT</button>
+                  <button id="coachModeProfessionalBtn" class="xl-pill xl-pill-primary">PROFESSIONAL</button>
+                </div>
+                <p id="adaptiveNote" class="xl-subtitle">Adapting based on your recent patterns</p>
+              </div>
+              <div class="xl-analyzer-inline">
+                <p class="xl-label xl-label-inline">Analyzer</p>
+                <button id="analyzerToggleBtn" class="xl-toggle-btn">
+                  <span id="analyzerStatusCircle" class="xl-toggle-circle"></span>
+                  <span id="analyzerStatusLabel">ON</span>
+                </button>
+              </div>
+            </div>
+          </section>
 
-          <div class="xl-input-footer">
-            <button id="rephraseButton" class="xl-secondary-btn" type="button">
-              REPHRASE
-            </button>
-            <button id="deliverButton" class="xl-primary-btn" type="button">
-              DELIVER
-            </button>
-          </div>
-        </section>
+          <section class="xl-drawer-section xl-coach-control-card">
+            <span class="xl-chip" id="intensityLabel">Medium intensity</span>
+            <p id="coachHintText" class="xl-coach-text">Your tone has some heat, but you're still in a coaching zone.</p>
+            <button id="refreshCoachButton" class="xl-link-btn">Refresh coach feedback</button>
+          </section>
+
+          <section class="xl-drawer-section xl-coach-control-card" id="patternSummaryCard" style="display:none;">
+            <h3>Communication Patterns</h3>
+            <div id="patternInsights"></div>
+          </section>
+        </div>
+              </div>
+            </div>
+          </section>
+
+          <section class="xl-shell-panel xl-shell-panel-chat" data-panel="chat">
+            <div class="xl-messaging-layout">
+              <section class="xl-chat-list-card">
+                <div class="xl-insights-table-header">
+                  <p class="xl-label">Conversations</p>
+                  <button id="newChatBtn" class="xl-secondary-btn" type="button" disabled>New (Coming soon)</button>
+                </div>
+                <div id="conversationList" class="xl-chat-list"></div>
+              </section>
+
+              <section class="xl-chat-thread">
+                <header id="conversationThreadHeader" class="xl-chat-thread-header">
+                  <div>
+                    <p id="activeConversationMeta" class="xl-label">Conversation</p>
+                    <h3 id="activeConversationName" class="xl-chat-thread-title">Select a chat</h3>
+                  </div>
+                </header>
+                <div id="emptyState" class="xl-empty-state">Select a conversation or send the first message.</div>
+                <div id="chatHistory" class="xl-history-list"></div>
+              </section>
+
+              <div id="inlineCoachNudge" class="xl-inline-nudge" style="display:none;">
+                <div class="xl-nudge-content">
+                  <span class="xl-chip" id="nudgeRisk">Risk: escalation</span>
+                  <p id="nudgeInsight">This might come across as intense.</p>
+                  <div class="xl-nudge-actions">
+                    <button id="nudgeUseRewriteBtn" class="xl-link-btn">Use rewrite</button>
+                    <button id="nudgeWhyBtn" class="xl-link-btn">Why?</button>
+                    <button id="nudgeDismissBtn" class="xl-link-btn">Dismiss</button>
+                  </div>
+                </div>
+              </div>
+
+              <div id="emotionChips" class="xl-emotion-chips" style="display:none;">
+                <div class="xl-chip-row">
+                  <button class="xl-chip" data-emotion-btn data-emotion="calm">Calm</button>
+                  <button class="xl-chip" data-emotion-btn data-emotion="anxious">Anxious</button>
+                  <button class="xl-chip" data-emotion-btn data-emotion="frustrated">Frustrated</button>
+                  <button class="xl-chip" data-emotion-btn data-emotion="sad">Sad</button>
+                  <button class="xl-chip" data-emotion-btn data-emotion="hopeful">Hopeful</button>
+                  <button id="dismissEmotionChips" class="xl-chip xl-chip-dismiss">x</button>
+                </div>
+              </div>
+
+              <section class="xl-composer">
+                <div id="draftCoachBar" class="xl-draft-coach-bar" aria-live="polite">
+                  <span id="draftCoachSuggestion" class="xl-draft-coach-suggestion">Best move: Keep it clear and specific.</span>
+                  <span id="draftCoachTone" class="xl-draft-coach-tone">Tone: Calm</span>
+                </div>
+                <div id="refineSuggestionCard" class="xl-refine-suggestion-card hidden" aria-live="polite">
+                  <p class="xl-response-detail-label">Suggested version</p>
+                  <p id="refineSuggestionText" class="xl-chat-text"></p>
+                  <p id="refineSuggestionReason" class="xl-subtitle hidden"></p>
+                  <div class="xl-refine-suggestion-actions">
+                    <button id="useRefineSuggestionBtn" class="xl-send-btn" type="button">Use Suggestion</button>
+                    <button id="dismissRefineSuggestionBtn" class="xl-secondary-btn" type="button">Dismiss</button>
+                  </div>
+                </div>
+                <div class="xl-composer-row">
+                  <button id="coachToggleBtn" class="xl-coach-btn">XL</button>
+                  <textarea id="messageInput" class="xl-input" placeholder="Type your message..." rows="1"></textarea>
+                  <button id="refineDraftBtn" class="xl-secondary-btn xl-refine-btn" type="button">Refine</button>
+                  <button id="deliverButton" class="xl-send-btn">Send</button>
+                </div>
+              </section>
+            </div>
+          </section>
+
+          <section class="xl-shell-panel xl-shell-panel-journal" data-panel="journal">
+            <div class="xl-insights-layout xl-journal-shell-layout">
+              <header class="xl-insights-header">
+                <h1>Journal</h1>
+                <p class="xl-subtitle">Private reflection for communication growth and self-awareness.</p>
+              </header>
+
+              <section class="xl-insights-card">
+                <p class="xl-label">New Entry</p>
+                <textarea
+                  id="journalEntryInput"
+                  class="xl-input"
+                  rows="6"
+                  placeholder="What happened, how did it affect you, and what do you want to communicate differently next time?"
+                ></textarea>
+
+                <div class="xl-journal-controls">
+                  <label for="journalMood" class="xl-label">Mood (optional)</label>
+                  <select id="journalMood" class="xl-journal-select">
+                    <option value="">No mood selected</option>
+                    <option value="calm">Calm</option>
+                    <option value="anxious">Anxious</option>
+                    <option value="frustrated">Frustrated</option>
+                    <option value="sad">Sad</option>
+                    <option value="hopeful">Hopeful</option>
+                    <option value="conflicted">Conflicted</option>
+                    <option value="grateful">Grateful</option>
+                  </select>
+                </div>
+
+                <div class="xl-journal-actions">
+                  <button id="journalSaveBtn" class="xl-primary-btn">Save Entry</button>
+                  <span id="journalStatus" class="xl-subtitle"></span>
+                </div>
+              </section>
+
+              <section id="journalLatestAnalysis" class="xl-insights-card hidden">
+                <p class="xl-label">Reflection Analyzer</p>
+                <div id="journalAnalysisContent" class="xl-journal-analysis-grid"></div>
+              </section>
+
+              <section class="xl-insights-card">
+                <div class="xl-insights-table-header">
+                  <p class="xl-label">Previous Entries</p>
+                  <button id="journalRefreshBtn" class="xl-secondary-btn">Refresh</button>
+                </div>
+                <div id="journalEntriesList" class="xl-journal-list">
+                  <p class="xl-subtitle">Loading entries...</p>
+                </div>
+              </section>
+            </div>
+          </section>
+        </div>
       </section>
     </main>
 
-    <!-- Pause modal for “take a breath” moments -->
+    <aside id="appMenuOverlay" class="xl-app-menu hidden">
+      <div id="appMenuBackdrop" class="xl-app-menu-backdrop"></div>
+      <div class="xl-app-menu-panel">
+        <div class="xl-insights-table-header">
+          <p class="xl-label">Menu</p>
+          <button id="closeMenuBtn" class="xl-close-btn">x</button>
+        </div>
+        <div class="xl-app-menu-list">
+          <button class="xl-secondary-btn" type="button" data-menu-view="chats">Chats</button>
+          <button class="xl-secondary-btn" type="button" data-menu-view="coach">Coach</button>
+          <button class="xl-secondary-btn" type="button" data-menu-view="journal">Journal</button>
+          <a href="/insights.html" class="xl-secondary-btn">Insights</a>
+          <button class="xl-secondary-btn xl-disabled-control" type="button" disabled>Settings <span class="xl-coming-soon">coming soon</span></button>
+          <button class="xl-secondary-btn xl-disabled-control" type="button" disabled>Terms / Privacy <span class="xl-coming-soon">coming soon</span></button>
+          <button class="xl-secondary-btn xl-disabled-control" type="button" disabled>Add user / Manage chats <span class="xl-coming-soon">coming soon</span></button>
+          <button class="xl-secondary-btn xl-disabled-control" type="button" disabled>Log out <span class="xl-coming-soon">coming soon</span></button>
+        </div>
+      </div>
+    </aside>
+
     <div id="pauseModal" class="xl-modal hidden">
       <div class="xl-modal-backdrop"></div>
       <div class="xl-modal-dialog">
-        <h2>lets pause and Take a breath!</h2>
+        <h2>Let's pause and take a breath!</h2>
         <p class="xl-modal-text">
           This message is coming in a little hot/intense
           (<span id="pauseIntensityLabel">high intensity</span>).
-          You’re in control — what would you like to do?
+          You're in control - what would you like to do?
         </p>
-
+        <p id="pauseRisk" class="xl-modal-text" style="display:none;"></p>
+        <p id="pauseInsight" class="xl-modal-text" style="display:none;"></p>
+        <p id="pausePrinciple" class="xl-modal-text" style="display:none;"></p>
         <div class="xl-modal-actions">
-          <button
-            id="pauseUseSuggestionButton"
-            class="xl-primary-btn"
-            type="button"
-          >
-            Use XL AI rephrase
-          </button>
-          <button
-            id="pauseSendAnywayButton"
-            class="xl-secondary-btn"
-            type="button"
-          >
-            Send anyway
-          </button>
-          <button
-            id="pauseCancelButton"
-            class="xl-pill xl-pill-ghost"
-            type="button"
-          >
-            Cancel/Back
-          </button>
+          <button id="pauseUseSuggestionButton" class="xl-primary-btn">Use XL AI rephrase</button>
+          <button id="pauseSendAnywayButton" class="xl-secondary-btn">Send anyway</button>
+          <button id="pauseCancelButton" class="xl-pill xl-pill-ghost">Cancel/Back</button>
         </div>
       </div>
     </div>
 
+    <script src="/beta-config.js"></script>
     <script src="/chat.js"></script>
+    <script src="/journal.js"></script>
   </body>
 </html>

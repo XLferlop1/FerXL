@@ -1,19 +1,20 @@
 // XL AI · EQ Log front-end
-// Shows last ~200 messages for one conversation (alex)
+// Shows last ~200 messages for one configured beta conversation
 
 (async function () {
+  const betaConfig = window.XL_BETA_CONFIG || {};
+  const conversationId = betaConfig.defaultConversationId || "beta_conversation";
   const loading = document.getElementById("loading");
   const container = document.getElementById("logContainer");
 
   async function loadMessages() {
     try {
-      const res = await fetch("/api/messages?conversation=alex");
+      const res = await fetch(`/api/messages?conversation=${encodeURIComponent(conversationId)}`);
       if (!res.ok) {
         throw new Error("Status " + res.status);
       }
 
       const data = await res.json();
-      console.log("[XL AI] /api/messages:", data);
 
       loading.textContent = "";
 
@@ -37,6 +38,11 @@
           <th>Intensity</th>
           <th>Pause?</th>
           <th>Used suggestion?</th>
+          <th>Action Taken</th>
+          <th>Pause Reason</th>
+          <th>Risks</th>
+          <th>Intent Guess</th>
+          <th>Coach Mode</th>
         </tr>
       `;
       table.appendChild(thead);
@@ -63,6 +69,11 @@
           }</td>
           <td>${m.was_pause_taken ? "✔" : ""}</td>
           <td>${m.used_suggestion ? "✔" : ""}</td>
+          <td>${m.action_taken || ""}</td>
+          <td>${m.pause_reason || ""}</td>
+          <td>${(m.risks || []).join(', ')}</td>
+          <td>${m.intent_guess || ""}</td>
+          <td>${m.coach_mode || ""}</td>
         `;
         tbody.appendChild(tr);
       });
