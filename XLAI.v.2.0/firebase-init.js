@@ -11,12 +11,7 @@ import {
 // 🔐 1) PASTE YOUR CONFIG FROM FIREBASE CONSOLE HERE
 const firebaseConfig = {
   // <-- replace everything inside with your own keys
-    apiKey: "AIzaSyAfyrRZt-ejb2rZesxhmJYW5LdDVwMMVmE",
-    authDomain: "xlai-3497b.firebaseapp.com",
-    projectId: "xlai-3497b",
-    storageBucket: "xlai-3497b.firebasestorage.app",
-    messagingSenderId: "849831285122",
-    appId: "1:849831285122:web:ed96186436b5f8df1bbf9b",
+
 };
 
 // 2) Initialize app + auth
