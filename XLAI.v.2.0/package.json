@@ -7,8 +7,10 @@
   "author": "Fernando Lins",
   "license": "MIT",
  "scripts": {
+    "check:syntax": "node --check server.js && node --check engine/safetyKnowledgeBase.js && node --check engine/safetyDecisionEngine.js && node --check engine/safetyDecisionRuntime.js && node --check public/chat.js && node --check public/insights.js && node --check tests/contracts/response-contract.test.js",
   "start": "node server.js",
-  "smoke": "BASE_URL=http://127.0.0.1:3000 bash ./script/smoke.sh"
+  "smoke": "BASE_URL=http://127.0.0.1:3000 bash ./script/smoke.sh",
+  "test:contracts": "node ./tests/contracts/response-contract.test.js"
   },
   "dependencies": {
     "cors": "^2.8.5",
