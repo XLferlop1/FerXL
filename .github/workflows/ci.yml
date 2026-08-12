@@ -30,22 +30,37 @@ jobs:
         run: npm run check:syntax
 
   integration:
-    runs-on: ubuntu-latest
     needs: syntax
-    if: ${{ secrets.CI_DATABASE_URL != '' && secrets.CI_OPENAI_API_KEY != '' }}
+    runs-on: ubuntu-latest
     defaults:
       run:
         working-directory: XLAI.v.2.0
     env:
+      CI_DATABASE_URL: ${{ secrets.CI_DATABASE_URL }}
+      CI_OPENAI_API_KEY: ${{ secrets.CI_OPENAI_API_KEY }}
       DATABASE_URL: ${{ secrets.CI_DATABASE_URL }}
       OPENAI_API_KEY: ${{ secrets.CI_OPENAI_API_KEY }}
       NODE_ENV: development
       PORT: 3000
     steps:
+      - name: Check integration secrets
+        id: integration-check
+        shell: bash
+        run: |
+          if [[ -n "${CI_DATABASE_URL:-}" && -n "${CI_OPENAI_API_KEY:-}" ]]; then
+            echo "available=true" >> "$GITHUB_OUTPUT"
+            echo "Integration validation secrets detected; continuing."
+          else
+            echo "available=false" >> "$GITHUB_OUTPUT"
+            echo "Integration validation skipped: required CI secrets are not configured for this run."
+          fi
+
       - name: Checkout
+        if: ${{ steps.integration-check.outputs.available == 'true' }}
         uses: actions/checkout@v4
 
       - name: Setup Node.js
+        if: ${{ steps.integration-check.outputs.available == 'true' }}
         uses: actions/setup-node@v4
         with:
           node-version: 20
@@ -53,12 +68,15 @@ jobs:
           cache-dependency-path: XLAI.v.2.0/package-lock.json
 
       - name: Install dependencies
+        if: ${{ steps.integration-check.outputs.available == 'true' }}
         run: npm ci
 
       - name: Check syntax
+        if: ${{ steps.integration-check.outputs.available == 'true' }}
         run: npm run check:syntax
 
       - name: Start app for smoke tests
+        if: ${{ steps.integration-check.outputs.available == 'true' }}
         run: |
           npm start > /tmp/xlai-server.log 2>&1 &
           echo $! > /tmp/xlai-server.pid
@@ -73,20 +91,22 @@ jobs:
           exit 1
 
       - name: Run smoke tests
+        if: ${{ steps.integration-check.outputs.available == 'true' }}
         run: npm run smoke
 
       - name: Stop app
-        if: always()
+        if: ${{ steps.integration-check.outputs.available == 'true' && always() }}
         run: |
           if [[ -f /tmp/xlai-server.pid ]]; then
             kill "$(cat /tmp/xlai-server.pid)" || true
           fi
 
       - name: Run contract tests
+        if: ${{ steps.integration-check.outputs.available == 'true' }}
         run: npm run test:contracts
 
       - name: Upload smoke server log
-        if: failure()
+        if: ${{ failure() && steps.integration-check.outputs.available == 'true' }}
         uses: actions/upload-artifact@v4
         with:
           name: xlai-smoke-server-log
