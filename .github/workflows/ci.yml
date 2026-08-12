@@ -46,6 +46,7 @@ jobs:
       - name: Check integration secrets
         id: integration-check
         shell: bash
+        working-directory: .
         run: |
           if [[ -n "${CI_DATABASE_URL:-}" && -n "${CI_OPENAI_API_KEY:-}" ]]; then
             echo "available=true" >> "$GITHUB_OUTPUT"
@@ -57,6 +58,7 @@ jobs:
 
       - name: Skip integration due to missing secrets
         if: ${{ steps.integration-check.outputs.available != 'true' }}
+        working-directory: .
         run: echo "Skipping integration validation because CI secrets are unavailable for this run."
 
       - name: Checkout
