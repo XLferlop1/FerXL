@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>XL AI · Insights</title>
+    <link rel="stylesheet" href="/style.css" />
+  </head>
+  <body class="xl-root xl-page-surface xl-insights-page">
+    <main class="xl-insights-layout xl-page-layout">
+      <header class="xl-insights-header">
+        <div class="xl-pill-row">
+          <a href="/chat.html" class="xl-secondary-btn">Back to Chat</a>
+          <span id="insightsUserBadge" class="xl-chip xl-page-user">User: loading...</span>
+        </div>
+        <h1>Insights</h1>
+        <p class="xl-subtitle">Personal communication intelligence, patterns, and progress.</p>
+      </header>
+
+      <section class="xl-insights-card">
+        <div class="xl-insights-table-header">
+          <p class="xl-label">Unified interaction timeline</p>
+          <span id="insightsTimelineCount" class="xl-chip">Loading...</span>
+        </div>
+        <div class="xl-pill-row" id="insightsTimelineFilterRow" style="margin-bottom: 10px;">
+          <button class="xl-pill xl-pill-primary is-active" data-timeline-filter="all">All</button>
+          <button class="xl-pill xl-pill-primary" data-timeline-filter="message">Message</button>
+          <button class="xl-pill xl-pill-primary" data-timeline-filter="coach">Coach</button>
+        </div>
+        <div class="xl-table-wrap">
+          <table class="xl-insights-table">
+            <thead>
+              <tr>
+                <th>Time</th>
+                <th>Source</th>
+                <th>Event</th>
+                <th>Preview</th>
+                <th>Context</th>
+              </tr>
+            </thead>
+            <tbody id="insightsTimelineTable">
+              <tr><td colspan="5">Loading timeline...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="xl-insights-grid">
+        <article class="xl-insights-card xl-insight-summary-card">
+          <p class="xl-label">Pattern summary</p>
+          <div id="insightsPatternSummary">Loading...</div>
+        </article>
+
+        <article class="xl-insights-card">
+          <p class="xl-label">Behavior feedback</p>
+          <div id="insightsBehavior">Loading...</div>
+        </article>
+
+        <article class="xl-insights-card">
+          <p class="xl-label">Coach usage summary</p>
+          <div id="insightsCoachSummary">Loading...</div>
+        </article>
+      </section>
+
+      <section class="xl-insights-card">
+        <div class="xl-insights-table-header">
+          <p class="xl-label">Recent message history</p>
+          <span class="xl-chip">Last 30</span>
+        </div>
+        <div class="xl-table-wrap">
+          <table class="xl-insights-table">
+            <thead>
+              <tr>
+                <th>Time</th>
+                <th>Final Message</th>
+                <th>Intensity</th>
+                <th>Intent</th>
+                <th>Risks</th>
+              </tr>
+            </thead>
+            <tbody id="insightsHistoryTable">
+              <tr><td colspan="5">Loading...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="xl-insights-card">
+        <div class="xl-insights-table-header">
+          <p class="xl-label">Recent coach interactions</p>
+          <span class="xl-chip">Last 30</span>
+        </div>
+        <div class="xl-table-wrap">
+          <table class="xl-insights-table">
+            <thead>
+              <tr>
+                <th>Time</th>
+                <th>Coach Question</th>
+                <th>Intent Type</th>
+                <th>Coach Response</th>
+                <th>Rewrite</th>
+              </tr>
+            </thead>
+            <tbody id="insightsCoachHistoryTable">
+              <tr><td colspan="5">Loading...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </main>
+
+    <script src="/beta-config.js"></script>
+    <script src="/insights.js"></script>
+  </body>
+</html>
