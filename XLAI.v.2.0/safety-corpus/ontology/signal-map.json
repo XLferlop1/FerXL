@@ -1,0 +1,228 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://xlai.local/safety-corpus/ontology/signal-map.json",
+  "title": "XLAI Safety Corpus Signal Map",
+  "version": "0.1",
+  "description": "A corpus annotation reference for existing deterministic safety signals and an initial semantic signal vocabulary.",
+  "deterministicBoundary": "Deterministic signal identifiers and current live enforcement remain authoritative in engine/safetyEngine.js. These references do not change regex rules or runtime behavior.",
+  "semanticBoundary": "Semantic signals are annotation vocabulary for future classifier development and shadow-mode comparison. No semantic signal independently defines safety policy or enforcement.",
+  "semanticSignalNamespace": "Use only signalKey values listed in semanticSignals. A future corpus-only extension must use the corpus_ prefix, include evidence requirements and ambiguity notes, and be reviewed before reuse; do not add synonyms for an existing signal.",
+  "communicationRiskBoundary": "Communication risks from engine/riskEngine.js remain separate from safety signals and cannot independently raise or lower Safety Levels 0 through 5.",
+  "deterministicSignals": [
+    {
+      "signalKey": "emergency_immediate_danger",
+      "source": "deterministic",
+      "expectedSafetyLevel": 5,
+      "possibleCategoryMappings": ["immediate_danger"],
+      "description": "Existing deterministic output for current emergency or immediate-danger language."
+    },
+    {
+      "signalKey": "self_harm_or_suicide",
+      "source": "deterministic",
+      "expectedSafetyLevel": 4,
+      "possibleCategoryMappings": ["self_harm_or_suicide"],
+      "description": "Existing deterministic output for self-harm, suicide, or related self-directed harm language."
+    },
+    {
+      "signalKey": "violence_risk",
+      "source": "deterministic",
+      "expectedSafetyLevel": 4,
+      "possibleCategoryMappings": ["violence_risk"],
+      "description": "Existing deterministic output for possible intent or risk of harming another person."
+    },
+    {
+      "signalKey": "abuse_or_coercion",
+      "source": "deterministic",
+      "expectedSafetyLevel": 3,
+      "possibleCategoryMappings": ["abuse_or_coercion"],
+      "description": "Existing deterministic output for the broad Level 3 abuse, coercion, stalking, intimidation, unsafe-home, and related pattern family."
+    },
+    {
+      "signalKey": "high_conflict_relationship",
+      "source": "deterministic",
+      "expectedSafetyLevel": 2,
+      "possibleCategoryMappings": ["conflict_crisis"],
+      "description": "Existing deterministic output for high-conflict relationship language."
+    },
+    {
+      "signalKey": "emotional_distress",
+      "source": "deterministic",
+      "expectedSafetyLevel": 1,
+      "possibleCategoryMappings": ["emotional_distress"],
+      "description": "Existing deterministic output for emotional distress language without a higher-level signal."
+    }
+  ],
+  "semanticSignals": [
+    {
+      "signalKey": "fear_of_harm",
+      "source": "semantic",
+      "description": "The speaker expresses fear that another person may cause harm.",
+      "possibleCategories": ["unsafe_relationship_dynamics", "threats_or_intimidation", "abuse_or_coercion"],
+      "possibleLevels": [3],
+      "evidenceRequirements": ["Explicit fear or a described harm concern", "Identify whether the fear is current, historical, hypothetical, or quoted"],
+      "ambiguityNotes": ["Fear alone does not establish a specific actor, intent, or immediate danger."]
+    },
+    {
+      "signalKey": "restricted_autonomy",
+      "source": "semantic",
+      "description": "Another person appears to restrict movement, choices, money, contact, or access.",
+      "possibleCategories": ["coercive_control_or_isolation", "abuse_or_coercion", "unsafe_relationship_dynamics"],
+      "possibleLevels": [3],
+      "evidenceRequirements": ["Describe the restricted action and the controlling behavior", "Record fear, force, or consequence only when supported"],
+      "ambiguityNotes": ["Ordinary agreements, privacy requests, or shared planning are not sufficient by themselves."]
+    },
+    {
+      "signalKey": "credible_threat",
+      "source": "semantic",
+      "description": "A threat of harm or retaliation appears credible in the described context.",
+      "possibleCategories": ["threats_or_intimidation", "immediate_danger"],
+      "possibleLevels": [3, 5],
+      "evidenceRequirements": ["Identify the threat content, source, target, and timing", "Record current danger evidence separately"],
+      "ambiguityNotes": ["Figurative, joking, quoted, or fictional threats require contextual review."]
+    },
+    {
+      "signalKey": "intimidation",
+      "source": "semantic",
+      "description": "Scare tactics, terrorizing language, or intimidation appears to shape behavior.",
+      "possibleCategories": ["threats_or_intimidation", "abuse_or_coercion", "unsafe_relationship_dynamics"],
+      "possibleLevels": [3],
+      "evidenceRequirements": ["Cite the intimidating behavior or language", "Separate perceived fear from confirmed harm"],
+      "ambiguityNotes": ["Anger or firmness without a safety implication is not enough."]
+    },
+    {
+      "signalKey": "unwanted_surveillance",
+      "source": "semantic",
+      "description": "Unwanted monitoring of devices, location, communications, or movements is described.",
+      "possibleCategories": ["stalking_or_tracking", "coercive_control_or_isolation", "unsafe_relationship_dynamics"],
+      "possibleLevels": [3],
+      "evidenceRequirements": ["Identify the monitoring behavior and whether it is unwanted or coercive"],
+      "ambiguityNotes": ["Consensual location sharing or ordinary check-ins are not sufficient by themselves."]
+    },
+    {
+      "signalKey": "unwanted_following",
+      "source": "semantic",
+      "description": "Repeated following, unwanted appearances, or pursuit is described.",
+      "possibleCategories": ["stalking_or_tracking", "unsafe_relationship_dynamics"],
+      "possibleLevels": [3],
+      "evidenceRequirements": ["Record repeated or unwanted pursuit evidence and current context"],
+      "ambiguityNotes": ["A single planned meeting or consensual accompaniment is not sufficient by itself."]
+    },
+    {
+      "signalKey": "forced_compliance",
+      "source": "semantic",
+      "description": "The speaker describes being forced to answer, act, stay, leave, or comply.",
+      "possibleCategories": ["abuse_or_coercion", "coercive_control_or_isolation", "unsafe_relationship_dynamics"],
+      "possibleLevels": [3],
+      "evidenceRequirements": ["Identify the forced action and the pressure, threat, or control supporting it"],
+      "ambiguityNotes": ["Routine requests or mutually agreed obligations are not forced compliance."]
+    },
+    {
+      "signalKey": "coercive_pressure",
+      "source": "semantic",
+      "description": "Pressure backed by fear, punishment, retaliation, or loss of autonomy is described.",
+      "possibleCategories": ["abuse_or_coercion", "coercive_control_or_isolation", "threats_or_intimidation"],
+      "possibleLevels": [3],
+      "evidenceRequirements": ["Record the pressure and the consequence or threat as stated"],
+      "ambiguityNotes": ["Persuasion, disagreement, or ordinary relationship pressure should not be upgraded without evidence."]
+    },
+    {
+      "signalKey": "isolation_from_support",
+      "source": "semantic",
+      "description": "Access to friends, family, services, or other support appears restricted.",
+      "possibleCategories": ["coercive_control_or_isolation", "abuse_or_coercion", "unsafe_relationship_dynamics"],
+      "possibleLevels": [3],
+      "evidenceRequirements": ["Identify who or what support is restricted and how"],
+      "ambiguityNotes": ["A request for temporary space is not isolation without control or fear evidence."]
+    },
+    {
+      "signalKey": "unsafe_home_environment",
+      "source": "semantic",
+      "description": "The current home or living environment is described as unsafe.",
+      "possibleCategories": ["home_danger", "unsafe_relationship_dynamics", "immediate_danger"],
+      "possibleLevels": [3, 5],
+      "evidenceRequirements": ["Identify the current environmental danger or fear", "Record immediacy and emergency evidence separately"],
+      "ambiguityNotes": ["Stressful, tense, or unpleasant housing is not automatically unsafe."]
+    },
+    {
+      "signalKey": "direct_self_harm_ideation",
+      "source": "semantic",
+      "description": "The speaker directly expresses thoughts or desire to harm themselves.",
+      "possibleCategories": ["self_harm_or_suicide"],
+      "possibleLevels": [4],
+      "evidenceRequirements": ["Use direct self-referential evidence and distinguish current intent from quotation or discussion"],
+      "ambiguityNotes": ["Figurative phrases and third-person discussion require context."]
+    },
+    {
+      "signalKey": "indirect_self_harm_ideation",
+      "source": "semantic",
+      "description": "Indirect language plausibly suggests self-harm or not wanting to live.",
+      "possibleCategories": ["self_harm_or_suicide", "emotional_distress"],
+      "possibleLevels": [1, 4],
+      "evidenceRequirements": ["Record the indirect wording and contextual evidence supporting the interpretation"],
+      "ambiguityNotes": ["Do not convert hopelessness, exhaustion, or idioms into self-harm intent without evidence."]
+    },
+    {
+      "signalKey": "suicidal_intent",
+      "source": "semantic",
+      "description": "The speaker expresses possible intent to die or end their life.",
+      "possibleCategories": ["self_harm_or_suicide"],
+      "possibleLevels": [4],
+      "evidenceRequirements": ["Identify self-referential intent and relevant timing or plan evidence if stated"],
+      "ambiguityNotes": ["Historical, quoted, fictional, or hypothetical references must remain distinct."]
+    },
+    {
+      "signalKey": "harm_intent_toward_other",
+      "source": "semantic",
+      "description": "The speaker expresses possible intent to physically harm another person.",
+      "possibleCategories": ["violence_risk"],
+      "possibleLevels": [4],
+      "evidenceRequirements": ["Identify the intended target and self-referential intent", "Record current timing or access only when stated"],
+      "ambiguityNotes": ["Anger, violent media discussion, or quoted speech is not intent by itself."]
+    },
+    {
+      "signalKey": "immediate_physical_danger",
+      "source": "semantic",
+      "description": "A current, time-sensitive physical danger appears to be happening or imminent.",
+      "possibleCategories": ["immediate_danger"],
+      "possibleLevels": [5],
+      "evidenceRequirements": ["Require current timing and concrete danger evidence", "Distinguish emergency need from general fear"],
+      "ambiguityNotes": ["Urgency without danger evidence is not immediate physical danger."]
+    },
+    {
+      "signalKey": "access_to_weapon_in_danger_context",
+      "source": "semantic",
+      "description": "A weapon is present or accessible in a context that indicates danger.",
+      "possibleCategories": ["immediate_danger", "violence_risk"],
+      "possibleLevels": [4, 5],
+      "evidenceRequirements": ["Require weapon evidence plus a relevant current danger, threat, or harm context"],
+      "ambiguityNotes": ["Weapon ownership or abstract discussion is not sufficient by itself."]
+    },
+    {
+      "signalKey": "acute_emotional_distress",
+      "source": "semantic",
+      "description": "The speaker expresses intense emotional strain or inability to cope.",
+      "possibleCategories": ["emotional_distress", "conflict_crisis"],
+      "possibleLevels": [1, 2],
+      "evidenceRequirements": ["Cite the distress language and distinguish ordinary sadness from acute strain"],
+      "ambiguityNotes": ["Distress alone does not imply self-harm, abuse, or immediate danger."]
+    },
+    {
+      "signalKey": "hopelessness",
+      "source": "semantic",
+      "description": "The speaker expresses hopelessness or perceived lack of options.",
+      "possibleCategories": ["emotional_distress", "self_harm_or_suicide"],
+      "possibleLevels": [1, 4],
+      "evidenceRequirements": ["Record the exact hopelessness evidence and any separate self-harm indicators"],
+      "ambiguityNotes": ["Hopelessness is not equivalent to suicidal intent without supporting evidence."]
+    },
+    {
+      "signalKey": "severe_conflict_escalation",
+      "source": "semantic",
+      "description": "Conflict is intensifying through repeated accusation, rupture, betrayal, or explosive interaction.",
+      "possibleCategories": ["conflict_crisis", "unsafe_relationship_dynamics"],
+      "possibleLevels": [2, 3],
+      "evidenceRequirements": ["Cite repeated or severe conflict evidence", "Require separate safety evidence before assigning Level 3"],
+      "ambiguityNotes": ["Communication escalation and safety risk remain distinct systems."]
+    }
+  ]
+}

@@ -1,0 +1,95 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://xlai.local/safety-corpus/ontology/category-map.json",
+  "title": "XLAI Safety Corpus Category Map",
+  "version": "0.1",
+  "description": "Corpus reference metadata for the existing XLAI Safety Knowledge Base categories. This file is not a second policy source.",
+  "authoritativeSource": "engine/safetyKnowledgeBase.js",
+  "policyBoundary": "engine/safetyKnowledgeBase.js remains authoritative for category definitions, urgency, messaging policy, coach policy, resource tags, near-miss guidance, and validation. This map contains corpus reference information only.",
+  "categories": [
+    {
+      "key": "none",
+      "safetyLevel": 0,
+      "canonicalLabel": "normal coaching",
+      "knowledgeBaseReference": "engine/safetyKnowledgeBase.js#SAFETY_CATEGORIES.none",
+      "annotationDescription": "No material safety concern is indicated by the available evidence."
+    },
+    {
+      "key": "emotional_distress",
+      "safetyLevel": 1,
+      "canonicalLabel": "emotional distress",
+      "knowledgeBaseReference": "engine/safetyKnowledgeBase.js#SAFETY_CATEGORIES.emotional_distress",
+      "annotationDescription": "Acute emotional strain is present without a clear immediate-harm signal."
+    },
+    {
+      "key": "conflict_crisis",
+      "safetyLevel": 2,
+      "canonicalLabel": "high-conflict relationship crisis",
+      "knowledgeBaseReference": "engine/safetyKnowledgeBase.js#SAFETY_CATEGORIES.conflict_crisis",
+      "annotationDescription": "Severe interpersonal conflict, rupture, or betrayal is present without a direct safety threat."
+    },
+    {
+      "key": "unsafe_relationship_dynamics",
+      "safetyLevel": 3,
+      "canonicalLabel": "unsafe relationship dynamics",
+      "knowledgeBaseReference": "engine/safetyKnowledgeBase.js#SAFETY_CATEGORIES.unsafe_relationship_dynamics",
+      "annotationDescription": "The relationship context may be unsafe even when the exact form of harm is not fully specified."
+    },
+    {
+      "key": "abuse_or_coercion",
+      "safetyLevel": 3,
+      "canonicalLabel": "possible abuse or coercion",
+      "knowledgeBaseReference": "engine/safetyKnowledgeBase.js#SAFETY_CATEGORIES.abuse_or_coercion",
+      "annotationDescription": "The evidence points to abusive behavior, coercion, or control by another person."
+    },
+    {
+      "key": "stalking_or_tracking",
+      "safetyLevel": 3,
+      "canonicalLabel": "stalking or tracking",
+      "knowledgeBaseReference": "engine/safetyKnowledgeBase.js#SAFETY_CATEGORIES.stalking_or_tracking",
+      "annotationDescription": "Surveillance, following, location tracking, or monitoring creates a safety concern."
+    },
+    {
+      "key": "threats_or_intimidation",
+      "safetyLevel": 3,
+      "canonicalLabel": "threats or intimidation",
+      "knowledgeBaseReference": "engine/safetyKnowledgeBase.js#SAFETY_CATEGORIES.threats_or_intimidation",
+      "annotationDescription": "Threats, intimidation, or credible fear of harm are described."
+    },
+    {
+      "key": "coercive_control_or_isolation",
+      "safetyLevel": 3,
+      "canonicalLabel": "coercive control or isolation",
+      "knowledgeBaseReference": "engine/safetyKnowledgeBase.js#SAFETY_CATEGORIES.coercive_control_or_isolation",
+      "annotationDescription": "Movement, money, contact, communication, or autonomy appears restricted through control or fear."
+    },
+    {
+      "key": "home_danger",
+      "safetyLevel": 3,
+      "canonicalLabel": "home danger",
+      "knowledgeBaseReference": "engine/safetyKnowledgeBase.js#SAFETY_CATEGORIES.home_danger",
+      "annotationDescription": "The home or living environment is described as currently unsafe."
+    },
+    {
+      "key": "self_harm_or_suicide",
+      "safetyLevel": 4,
+      "canonicalLabel": "self-harm or suicide risk",
+      "knowledgeBaseReference": "engine/safetyKnowledgeBase.js#SAFETY_CATEGORIES.self_harm_or_suicide",
+      "annotationDescription": "Possible self-harm, suicidal intent, or a desire not to live is indicated."
+    },
+    {
+      "key": "violence_risk",
+      "safetyLevel": 4,
+      "canonicalLabel": "violence risk",
+      "knowledgeBaseReference": "engine/safetyKnowledgeBase.js#SAFETY_CATEGORIES.violence_risk",
+      "annotationDescription": "Possible intent or risk of physically harming another person is indicated."
+    },
+    {
+      "key": "immediate_danger",
+      "safetyLevel": 5,
+      "canonicalLabel": "immediate danger",
+      "knowledgeBaseReference": "engine/safetyKnowledgeBase.js#SAFETY_CATEGORIES.immediate_danger",
+      "annotationDescription": "A current emergency or life-threatening situation requiring immediate action is indicated."
+    }
+  ]
+}

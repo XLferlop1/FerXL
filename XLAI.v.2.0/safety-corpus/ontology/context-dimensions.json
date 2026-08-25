@@ -1,0 +1,118 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://xlai.local/safety-corpus/ontology/context-dimensions.json",
+  "title": "XLAI Safety Corpus Context Dimensions",
+  "version": "0.1",
+  "description": "Versioned annotation vocabulary for context and interaction intelligence. Values are evidence-guided references, not runtime policy.",
+  "unknownHandling": "Use unknown or null when the available message or conversation does not establish a value. Do not infer harmful intent solely from safety-related words.",
+  "vocabularyUsage": "Values in dimensions with values are controlled vocabulary. Dimensions marked allowExtension may use a specific, evidence-backed extension only when no existing value fits; use lower_snake_case, document the extension, and do not create synonyms for an existing value.",
+  "safetyBoundary": {
+    "ontologyControlsRuntimeEnforcement": false,
+    "authoritativePolicySource": "engine/safetyKnowledgeBase.js",
+    "authoritativeLiveEnforcement": "engine/safetyEngine.js",
+    "semanticClassifierMode": "future shadow mode only until separately approved",
+    "communicationRiskSeparation": "Communication risk remains separate from safety classification.",
+    "nonEnforcementIntelligence": "Trajectory and recipient-perspective intelligence must never independently raise or lower Safety Level."
+  },
+  "dimensions": {
+    "speakerRole": {
+      "type": "string",
+      "recommendedValues": ["potential_target", "potential_aggressor", "observer", "third_party_reporter", "participant", "unknown"],
+      "unknownValue": "unknown",
+      "allowExtension": true,
+      "description": "The role supported by available evidence; do not assign a harmful role solely from wording."
+    },
+    "targetRole": {
+      "type": "string",
+      "recommendedValues": ["potential_target", "potential_aggressor", "observer", "third_party_reporter", "participant", "unknown"],
+      "unknownValue": "unknown",
+      "allowExtension": true,
+      "description": "The possible role of the person or group discussed; flexible because target identity may be unsupported."
+    },
+    "temporality": {
+      "type": "string",
+      "values": ["historical", "recent", "current", "future", "unspecified", "unknown"],
+      "unknownValue": "unknown",
+      "description": "When the described event or state applies."
+    },
+    "immediacy": {
+      "type": "string",
+      "values": ["none", "unclear", "possible", "elevated", "imminent", "unknown"],
+      "unknownValue": "unknown",
+      "description": "How immediate the described concern appears from available evidence; not a policy decision by itself."
+    },
+    "literalness": {
+      "type": "string",
+      "values": ["literal", "figurative", "sarcastic", "joking", "quoted", "fictional", "hypothetical", "ambiguous", "unknown"],
+      "unknownValue": "unknown",
+      "description": "Whether wording is being used literally or in another recognizable frame."
+    },
+    "relationship": {
+      "type": "string",
+      "values": ["romantic_partner", "spouse", "ex_partner", "parent", "child", "family", "friend", "coworker", "manager", "employee", "client", "customer", "acquaintance", "stranger", "unknown"],
+      "unknownValue": "unknown",
+      "allowExtension": true,
+      "description": "Communication relationship reference only. This list is not evidence of safety risk."
+    },
+    "intent": {
+      "type": "string",
+      "values": ["communication_help", "rewrite_request", "advice_seeking", "venting", "reassurance_seeking", "reporting_experience", "reporting_current_danger", "threatening", "harm_planning", "factual_question", "reflective_processing", "joking", "quoting", "fictional_discussion", "hypothetical_discussion", "unknown"],
+      "unknownValue": "unknown",
+      "allowExtension": true,
+      "description": "Requested or expressed purpose. Harmful intent requires evidence and must not be inferred solely from safety-related words."
+    },
+    "powerImbalance": {
+      "type": "string",
+      "values": ["none_observed", "possible", "evident", "unknown"],
+      "unknownValue": "unknown",
+      "description": "An interaction-level power observation, not a permanent relationship label."
+    },
+    "vulnerabilityContext": {
+      "type": "string",
+      "recommendedValues": ["none_observed", "possible", "evident", "unknown"],
+      "unknownValue": "unknown",
+      "allowExtension": true,
+      "description": "Contextual vulnerability evidence only; do not use diagnostic or permanent personality labels."
+    }
+  },
+  "interactionIntelligenceFamilies": {
+    "extensibility": "Recommended labels are initial vocabulary only. Extensions require evidence, rationale, and ontology review; these families are not closed taxonomies yet.",
+    "evidenceRequirement": "Inferred interaction intelligence must include conceptual evidence references to the supporting message or turns and must preserve uncertainty.",
+    "families": {
+      "interactionPatterns": {
+        "recommendedLabels": ["escalation", "deescalation", "accusation_loop", "reassurance_loop", "withdrawal", "repair_attempt", "repeated_misunderstanding", "boundary_conflict", "reciprocal_defensiveness"],
+        "description": "Interaction-level patterns, not safety categories or personality labels."
+      },
+      "recipientPerspective": {
+        "recommendedLabels": ["possible_accusatory_reading", "possible_dismissive_reading", "possible_pressure_reading", "possible_unclear_request", "possible_boundary_signal"],
+        "description": "Possible interpretations, emotional responses, needs, or concerns. Never represent another person's internal state as known fact."
+      },
+      "trajectory": {
+        "recommendedLabels": ["clarification", "productive_discussion", "repair", "reconciliation", "compromise", "boundary_establishment", "recipient_defensiveness", "misunderstanding", "withdrawal", "escalation", "retaliation", "relationship_rupture", "workplace_consequence", "safety_escalation", "uncertain"],
+        "description": "Plausible future directions with likelihood and confidence, never guaranteed predictions or enforcement decisions."
+      },
+      "strengths": {
+        "recommendedLabels": ["self_awareness", "accountability", "repair_orientation", "empathy", "direct_communication", "patience", "healthy_boundary_setting", "emotional_regulation", "willingness_to_listen", "clarity_of_goal"],
+        "description": "Current interaction-level strengths supported by evidence, not permanent personality traits."
+      },
+      "vulnerabilityFactors": {
+        "recommendedLabels": ["emotional_overload", "fear_driven_communication", "rejection_sensitivity", "impulsive_messaging", "reassurance_seeking", "avoidance", "unclear_boundaries", "blame_pattern", "difficulty_expressing_need"],
+        "description": "Current interaction-level vulnerabilities supported by evidence, not diagnoses or permanent labels."
+      },
+      "coachingGoals": {
+        "recommendedLabels": ["clarify_intent", "reduce_defensiveness", "express_need", "increase_empathy", "establish_boundary", "repair", "pause_before_reply", "perspective_taking", "reduce_escalation", "safety_first"],
+        "description": "Potential coaching goals, not generated responses or safety policy."
+      }
+    }
+  },
+  "evidenceAndInferenceRules": [
+    "Observation means directly supported by available message or conversation evidence.",
+    "Inference means an interpretation based on observations and must retain uncertainty.",
+    "Inferred recipient feelings, motivations, vulnerabilities, strengths, and future behavior must not be represented as known facts.",
+    "Recipient-perspective annotations should use possible or may language and include evidence and unknowns.",
+    "Trajectory annotations represent plausible outcomes, not guaranteed predictions.",
+    "Strengths and vulnerability factors describe the current interaction and must not become permanent personality labels.",
+    "Communication risk annotations remain separate from safety classification.",
+    "Context dimensions do not independently raise or lower a Safety Level."
+  ]
+}

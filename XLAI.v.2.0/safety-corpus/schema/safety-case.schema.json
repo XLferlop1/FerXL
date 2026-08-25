@@ -1,0 +1,301 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://xlai.local/safety-corpus/schema/safety-case.schema.json",
+  "title": "XLAI Safety Corpus Single-Turn Case",
+  "description": "A versioned, single-turn labeled safety corpus case. Expected behavior is evaluation data and does not redefine the authoritative Safety Knowledge Base or runtime enforcement.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "schemaVersion",
+    "corpusVersion",
+    "input",
+    "safetyAnnotation",
+    "communicationAnnotation",
+    "context",
+    "observations",
+    "expectedBehavior",
+    "annotationMeta"
+  ],
+  "properties": {
+    "id": {
+      "type": "string",
+      "pattern": "^xlai-safety-[0-9]{6,}$",
+      "description": "Stable case identifier following the xlai-safety-000001-style convention without requiring one exact identifier."
+    },
+    "schemaVersion": {
+      "const": "0.1.2"
+    },
+    "corpusVersion": {
+      "type": "string",
+      "minLength": 1
+    },
+    "input": {
+      "$ref": "#/$defs/input"
+    },
+    "safetyAnnotation": {
+      "$ref": "#/$defs/safetyAnnotation"
+    },
+    "communicationAnnotation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["risks"],
+      "properties": {
+        "risks": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/communicationRisk" }
+        }
+      },
+      "description": "Communication risk is evaluated separately and must not determine Safety Levels 0 through 5."
+    },
+    "context": {
+      "$ref": "#/$defs/context"
+    },
+    "observations": {
+    "behavioralContext": {
+      "$ref": "#/$defs/behavioralContext"
+    },
+      "type": "array",
+      "items": { "$ref": "#/$defs/evidenceObservation" },
+      "description": "Directly observable facts, separate from inferred meaning."
+    },
+    "recipientPerspective": {
+      "$ref": "#/$defs/recipientPerspective"
+    },
+    "trajectory": {
+      "$ref": "#/$defs/trajectory"
+    },
+    "userFactors": {
+      "$ref": "#/$defs/userFactors"
+    },
+    "behavioralContext": {
+      "$ref": "#/$defs/behavioralContext"
+    },
+    "expectedBehavior": {
+      "$ref": "#/$defs/expectedBehavior"
+    },
+    "annotationMeta": {
+      "$ref": "#/$defs/annotationMeta"
+    }
+  },
+  "$defs": {
+    "nonEmptyString": {
+      "type": "string",
+      "minLength": 1
+    },
+    "nullableUnknownString": {
+      "type": ["string", "null"],
+      "description": "Use null or the explicit value unknown when the evidence does not support a conclusion."
+    },
+    "stringArray": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "input": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["text"],
+      "properties": {
+        "text": { "$ref": "#/$defs/nonEmptyString" },
+        "channel": {
+          "type": "string",
+          "enum": ["messaging", "coach", "journal", "unknown"]
+        },
+        "contextType": { "$ref": "#/$defs/nullableUnknownString" },
+        "requestedAction": { "$ref": "#/$defs/nullableUnknownString" }
+      }
+    },
+    "safetyCategory": {
+      "type": "string",
+      "enum": [
+        "none",
+        "emotional_distress",
+        "conflict_crisis",
+        "unsafe_relationship_dynamics",
+        "abuse_or_coercion",
+        "stalking_or_tracking",
+        "threats_or_intimidation",
+        "coercive_control_or_isolation",
+        "home_danger",
+        "self_harm_or_suicide",
+        "violence_risk",
+        "immediate_danger"
+      ],
+      "description": "Existing Safety Knowledge Base category key; no replacement taxonomy is permitted."
+    },
+    "safetyAnnotation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "category",
+        "level",
+        "urgency",
+        "confidence",
+        "semanticSignals",
+        "expectedDeterministicSignals",
+        "importantAbsentSignals",
+        "annotationRationale"
+      ],
+      "properties": {
+        "category": { "$ref": "#/$defs/safetyCategory" },
+        "level": { "type": "integer", "minimum": 0, "maximum": 5 },
+        "urgency": {
+          "type": "string",
+          "enum": ["none", "monitor", "elevated", "high", "immediate"]
+        },
+        "confidence": { "type": "number", "minimum": 0, "maximum": 1 },
+        "semanticSignals": { "$ref": "#/$defs/stringArray" },
+        "expectedDeterministicSignals": { "$ref": "#/$defs/stringArray" },
+        "importantAbsentSignals": { "$ref": "#/$defs/stringArray" },
+        "annotationRationale": { "$ref": "#/$defs/nonEmptyString" }
+      }
+    },
+    "communicationRisk": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "severity", "evidence"],
+      "properties": {
+        "type": { "$ref": "#/$defs/nonEmptyString" },
+        "severity": { "type": "string", "enum": ["low", "medium", "high"] },
+        "evidence": { "$ref": "#/$defs/nonEmptyString" }
+      }
+    },
+    "context": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "speakerRole": { "$ref": "#/$defs/nullableUnknownString" },
+        "targetRole": { "$ref": "#/$defs/nullableUnknownString" },
+        "relationship": { "$ref": "#/$defs/nullableUnknownString" },
+        "intent": { "$ref": "#/$defs/nullableUnknownString" },
+        "emotionalState": { "$ref": "#/$defs/nullableUnknownString" },
+        "temporality": { "$ref": "#/$defs/nullableUnknownString" },
+        "immediacy": { "$ref": "#/$defs/nullableUnknownString" },
+        "literalness": { "$ref": "#/$defs/nullableUnknownString" },
+        "powerImbalance": { "$ref": "#/$defs/nullableUnknownString" },
+        "vulnerabilityContext": { "$ref": "#/$defs/nullableUnknownString" }
+      }
+    },
+    "evidenceObservation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "value", "evidence"],
+      "properties": {
+        "type": { "$ref": "#/$defs/nonEmptyString" },
+        "value": {},
+        "evidence": { "$ref": "#/$defs/nonEmptyString" }
+      }
+    },
+    "recipientPerspective": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["possibleInterpretations", "possibleEmotionalResponses", "possibleNeedsOrConcerns", "confidence", "evidence", "unknowns"],
+      "properties": {
+        "possibleInterpretations": { "$ref": "#/$defs/stringArray" },
+        "possibleEmotionalResponses": { "$ref": "#/$defs/stringArray" },
+        "possibleNeedsOrConcerns": { "$ref": "#/$defs/stringArray" },
+        "confidence": { "type": "number", "minimum": 0, "maximum": 1 },
+        "evidence": { "$ref": "#/$defs/stringArray" },
+        "unknowns": { "$ref": "#/$defs/stringArray" }
+      },
+      "description": "Possible recipient interpretations only; never factual mind-reading or diagnostic labeling."
+    },
+    "trajectoryOutcome": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["outcome", "likelihood", "confidence", "evidence", "increasingFactors", "decreasingFactors"],
+      "properties": {
+        "outcome": { "$ref": "#/$defs/nonEmptyString" },
+        "likelihood": { "type": "string", "enum": ["low", "moderate", "high", "unknown"] },
+        "confidence": { "type": "number", "minimum": 0, "maximum": 1 },
+        "evidence": { "$ref": "#/$defs/stringArray" },
+        "increasingFactors": { "$ref": "#/$defs/stringArray" },
+        "decreasingFactors": { "$ref": "#/$defs/stringArray" }
+      }
+    },
+    "trajectory": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["currentDirection", "possibleOutcomes"],
+      "properties": {
+        "currentDirection": { "$ref": "#/$defs/nullableUnknownString" },
+        "possibleOutcomes": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/trajectoryOutcome" }
+        }
+      },
+      "description": "Probabilistic forecasting for coaching and evaluation; never a safety enforcement decision."
+    },
+    "factor": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "evidence"],
+      "properties": {
+        "type": { "$ref": "#/$defs/nonEmptyString" },
+        "evidence": { "$ref": "#/$defs/nonEmptyString" },
+        "confidence": { "type": "number", "minimum": 0, "maximum": 1 }
+      },
+      "description": "An interaction-level observation, not a permanent or diagnostic personality label."
+    },
+    "userFactors": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["strengths", "vulnerabilityFactors"],
+      "properties": {
+        "strengths": { "type": "array", "items": { "$ref": "#/$defs/factor" } },
+        "vulnerabilityFactors": { "type": "array", "items": { "$ref": "#/$defs/factor" } }
+      }
+    },
+    "behavioralContext": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["baselineStatus", "observedPatterns", "recurringThemes", "baselineDeviations", "interactionLoops", "contextualModifiers"],
+      "properties": {
+        "baselineStatus": { "type": "string", "enum": ["observed", "insufficient_evidence", "unknown"] },
+        "observedPatterns": { "type": "array", "items": { "$ref": "#/$defs/factor" } },
+        "recurringThemes": { "type": "array", "items": { "$ref": "#/$defs/factor" } },
+        "baselineDeviations": { "type": "array", "items": { "$ref": "#/$defs/factor" } },
+        "interactionLoops": { "type": "array", "items": { "$ref": "#/$defs/factor" } },
+        "contextualModifiers": { "type": "array", "items": { "$ref": "#/$defs/factor" } }
+      },
+      "description": "Evidence-bound interaction context, never a psychological profile or permanent user model. Omit when prior evidence is insufficient."
+    },
+    "expectedBehavior": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["shouldStopNormalCoaching", "allowNormalSend", "allowRewriteApply", "useSafetyGuidance", "showSafetyResources"],
+      "properties": {
+        "shouldStopNormalCoaching": { "type": "boolean" },
+        "allowNormalSend": { "type": "boolean" },
+        "allowRewriteApply": { "type": "boolean" },
+        "useSafetyGuidance": { "type": "boolean" },
+        "showSafetyResources": { "type": "boolean" }
+      },
+      "description": "Expected outcomes for corpus evaluation. These values must correspond to the authoritative Safety Knowledge Base and are not a second policy source."
+    },
+    "annotationMeta": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["source", "creationMethod", "reviewStatus", "annotationCertainty", "annotationNotes", "provenance"],
+      "properties": {
+        "source": {
+          "type": "string",
+          "enum": ["synthetic", "curated", "public_research_derived", "licensed", "deidentified_real_world", "internal_evaluation"]
+        },
+        "creationMethod": { "$ref": "#/$defs/nonEmptyString" },
+        "reviewStatus": {
+          "type": "string",
+          "enum": ["draft", "reviewed", "gold"],
+          "description": "Review quality status. It is independent from annotation certainty; gold does not imply clear."
+        },
+        "annotationCertainty": {
+          "type": "string",
+          "enum": ["clear", "uncertain", "ambiguous"],
+          "description": "Evidence certainty status, not model confidence. A gold record may be ambiguous when that ambiguity is explicitly reviewed."
+        },
+        "annotationNotes": { "$ref": "#/$defs/stringArray" },
+        "provenance": { "$ref": "#/$defs/nonEmptyString" }
+      }
+    }
+  }
+}
