@@ -11,6 +11,8 @@ const {
 
 const REVIEW_STATUSES = new Set(["draft", "reviewed", "gold"]);
 const ANNOTATION_CERTAINTIES = new Set(["clear", "uncertain", "ambiguous"]);
+const EVIDENCE_SOURCES = new Set(["directly_observed", "user_reported", "inferred"]);
+const BEHAVIORAL_CONTEXT_FIELDS = ["observedPatterns", "recurringThemes", "baselineDeviations", "interactionLoops", "contextualModifiers"];
 const EXPECTED_BEHAVIOR_FIELDS = [
   "shouldStopNormalCoaching",
   "allowNormalSend",
@@ -118,6 +120,22 @@ function validateAnnotationMeta(meta, file, record, errors) {
   }
 }
 
+function validateBehavioralContext(context, file, record, errors) {
+  if (context === undefined) return;
+  if (!isObject(context)) { addError(errors, file, record, "behavioralContext", "must be an object"); return; }
+  BEHAVIORAL_CONTEXT_FIELDS.forEach((field) => {
+    if (!Array.isArray(context[field])) { addError(errors, file, record, `behavioralContext.${field}`, "must be an array"); return; }
+    context[field].forEach((item, index) => {
+      const itemField = `behavioralContext.${field}[${index}]`;
+      if (!isObject(item)) { addError(errors, file, record, itemField, "must be an object"); return; }
+      if (typeof item.type !== "string" || item.type.trim() === "") addError(errors, file, record, `${itemField}.type`, "must be a non-empty string");
+      if (typeof item.evidence !== "string" || item.evidence.trim() === "") addError(errors, file, record, `${itemField}.evidence`, "must be a non-empty string");
+      if (!EVIDENCE_SOURCES.has(item.evidenceSource)) addError(errors, file, record, `${itemField}.evidenceSource`, "must be directly_observed, user_reported, or inferred");
+    });
+  });
+  if (context.baselineStatus === "observed" && !context.observedPatterns.some((item) => isObject(item) && item.evidenceSource === "directly_observed")) addError(errors, file, record, "behavioralContext.baselineStatus", "observed requires directly_observed support in observedPatterns");
+}
+
 function validateConversation(record, file, errors) {
   const annotatedTurns = new Map();
   if (Array.isArray(record.turns)) {
@@ -214,6 +232,8 @@ function validateRecord(record, file) {
   if (Array.isArray(record.turns)) {
     validateConversation(record, file, errors);
   }
+
+  validateBehavioralContext(record.behavioralContext, file, record, errors);
 
   return errors;
 }
@@ -359,13 +379,63 @@ function runSelfTest() {
       },
       shouldPass: false,
     },
+    {
+      name: "provenance: valid directly observed baseline",
+      record: { ...baseRecord("none", 0), behavioralContext: { baselineStatus: "observed", observedPatterns: [{ type: "pattern", evidence: "Available turn.", evidenceSource: "directly_observed" }], recurringThemes: [], baselineDeviations: [], interactionLoops: [], contextualModifiers: [] } },
+      shouldPass: true,
+    },
+    {
+      name: "provenance: valid user-reported insufficient baseline",
+      record: { ...baseRecord("none", 0), behavioralContext: { baselineStatus: "insufficient_evidence", observedPatterns: [{ type: "reported", evidence: "User report.", evidenceSource: "user_reported" }], recurringThemes: [], baselineDeviations: [], interactionLoops: [], contextualModifiers: [] } },
+      shouldPass: true,
+    },
+    {
+      name: "provenance: valid inferred insufficient baseline",
+      record: { ...baseRecord("none", 0), behavioralContext: { baselineStatus: "insufficient_evidence", observedPatterns: [{ type: "inference", evidence: "Possible pattern.", evidenceSource: "inferred" }], recurringThemes: [], baselineDeviations: [], interactionLoops: [], contextualModifiers: [] } },
+      shouldPass: true,
+    },
+    {
+      name: "provenance: valid mixed observed baseline",
+      record: { ...baseRecord("none", 0), behavioralContext: { baselineStatus: "observed", observedPatterns: [{ type: "pattern", evidence: "Available turn.", evidenceSource: "directly_observed" }, { type: "reported", evidence: "User report.", evidenceSource: "user_reported" }], recurringThemes: [], baselineDeviations: [], interactionLoops: [], contextualModifiers: [] } },
+      shouldPass: true,
+    },
+    {
+      name: "provenance: valid unknown baseline",
+      record: { ...baseRecord("none", 0), behavioralContext: { baselineStatus: "unknown", observedPatterns: [], recurringThemes: [], baselineDeviations: [], interactionLoops: [], contextualModifiers: [] } },
+      shouldPass: true,
+    },
+    {
+      name: "provenance: reject invalid evidence source",
+      record: { ...baseRecord("none", 0), behavioralContext: { baselineStatus: "unknown", observedPatterns: [{ type: "pattern", evidence: "Evidence.", evidenceSource: "invalid" }], recurringThemes: [], baselineDeviations: [], interactionLoops: [], contextualModifiers: [] } },
+      shouldPass: false, expectedError: "evidenceSource",
+    },
+    {
+      name: "provenance: reject missing behavioral source",
+      record: { ...baseRecord("none", 0), behavioralContext: { baselineStatus: "unknown", observedPatterns: [{ type: "pattern", evidence: "Evidence." }], recurringThemes: [], baselineDeviations: [], interactionLoops: [], contextualModifiers: [] } },
+      shouldPass: false, expectedError: "evidenceSource",
+    },
+    {
+      name: "provenance: reject user-reported-only observed baseline",
+      record: { ...baseRecord("none", 0), behavioralContext: { baselineStatus: "observed", observedPatterns: [{ type: "reported", evidence: "User report.", evidenceSource: "user_reported" }], recurringThemes: [], baselineDeviations: [], interactionLoops: [], contextualModifiers: [] } },
+      shouldPass: false, expectedError: "baselineStatus",
+    },
+    {
+      name: "provenance: reject inferred-only observed baseline",
+      record: { ...baseRecord("none", 0), behavioralContext: { baselineStatus: "observed", observedPatterns: [{ type: "inference", evidence: "Inference.", evidenceSource: "inferred" }], recurringThemes: [], baselineDeviations: [], interactionLoops: [], contextualModifiers: [] } },
+      shouldPass: false, expectedError: "baselineStatus",
+    },
+    {
+      name: "provenance: reject malformed behavioral evidence",
+      record: { ...baseRecord("none", 0), behavioralContext: { baselineStatus: "unknown", observedPatterns: [{}], recurringThemes: [], baselineDeviations: [], interactionLoops: [], contextualModifiers: [] } },
+      shouldPass: false, expectedError: "observedPatterns[0]",
+    },
   ];
 
   let failed = false;
-  cases.forEach(({ name, record, shouldPass }) => {
+  cases.forEach(({ name, record, shouldPass, expectedError }) => {
     const errors = validateRecord(record, "self-test");
     const passed = errors.length === 0;
-    if (passed !== shouldPass) {
+    if (passed !== shouldPass || (expectedError && !errors.some((error) => error.field.includes(expectedError)))) {
       failed = true;
       console.error(`SELF-TEST FAILED: ${name}`);
       errors.forEach((error) => console.error(`  ${error.field}: ${error.reason}`));

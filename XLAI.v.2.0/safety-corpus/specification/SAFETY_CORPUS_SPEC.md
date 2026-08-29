@@ -106,6 +106,8 @@ XLAI may reason about an observed behavioral or interaction baseline only from c
 
 Behavioral context is evidence, not policy. A recurring theme may increase relevance, but frequency alone cannot establish harmful intent or a safety category. Interaction loops may describe mutually reinforcing behavior as observed or plausible; they must not assign blame or unsupported causality.
 
+Behavioral-context items preserve their source: directly_observed for evidence visible in supplied interaction/history, user_reported for user-supplied historical claims, and inferred for cautious derivation. baselineStatus is separate: observed requires directly observed support, while insufficient_evidence and unknown remain valid when history cannot establish a stable baseline. This metadata cannot create psychological profiles, hidden motives, persistent recipient models, or automatic cross-session memory.
+
 Humor, sarcasm, exaggeration, emojis, retractions, and minimization are contextual modifiers. They do not independently dismiss a safety signal and do not independently establish concealed harmful intent. Retractions such as “I’m joking,” “lol chill,” “never mind,” “forget I said that,” “I wasn’t serious,” and “it’s nothing” are additional evidence whose meaning depends on context. Retraction is neither proof of safety nor proof of concealed intent.
 
 ### Development-only behavioral context cases

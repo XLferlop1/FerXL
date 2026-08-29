@@ -44,6 +44,8 @@ Gold and ambiguity are compatible. A record may validly be `reviewStatus: gold` 
 
 Behavioral baselines must be derived only from available conversation history and must use observable, time-bounded patterns. `insufficient_evidence` or `unknown` is preferred when history is too small. Recurring themes and interaction loops require evidence and must not become diagnoses, permanent labels, hidden motives, or unsupported causal claims. Humor and retraction are contextual modifiers rather than automatic safety dismissals or concealed-intent proofs.
 
+Each behavioral-context item must declare `evidenceSource`: `directly_observed`, `user_reported`, or `inferred`. An `observed` baseline requires directly observed evidence in `observedPatterns`; user-reported or inferred evidence alone requires `insufficient_evidence` or `unknown`.
+
 The current schemas require `annotationCertainty` and use this separation. Future schema changes may add further adjudication detail, but this standard does not create a new policy source.
 
 ## Minimum Quality Dimensions

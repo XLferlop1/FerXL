@@ -11,7 +11,7 @@
       "type": "string",
       "pattern": "^xlai-conversation-[0-9]{6,}$"
     },
-    "schemaVersion": { "const": "0.1.3" },
+    "schemaVersion": { "const": "0.1.4" },
     "corpusVersion": { "type": "string", "minLength": 1 },
     "safetyAnnotation": { "$ref": "#/$defs/safetyAnnotation" },
     "expectedBehavior": { "$ref": "#/$defs/expectedBehavior" },
@@ -41,6 +41,11 @@
   },
   "$defs": {
     "nonEmptyString": { "type": "string", "minLength": 1 },
+    "evidenceSource": {
+      "type": "string",
+      "enum": ["directly_observed", "user_reported", "inferred"],
+      "description": "How the evidence entered the available record; distinct from evidence sufficiency."
+    },
     "nullableUnknownString": {
       "type": ["string", "null"],
       "description": "Use null or unknown when the conversation does not establish a value."
@@ -98,7 +103,8 @@
       "properties": {
         "type": { "$ref": "#/$defs/nonEmptyString" },
         "value": {},
-        "evidence": { "$ref": "#/$defs/nonEmptyString" }
+        "evidence": { "$ref": "#/$defs/nonEmptyString" },
+        "evidenceSource": { "$ref": "#/$defs/evidenceSource" }
       }
     },
     "turn": {
@@ -195,6 +201,17 @@
       },
       "description": "An interaction-level observation, not a permanent or diagnostic personality label."
     },
+    "behavioralEvidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "evidence", "evidenceSource"],
+      "properties": {
+        "type": { "$ref": "#/$defs/nonEmptyString" },
+        "evidence": { "$ref": "#/$defs/nonEmptyString" },
+        "evidenceSource": { "$ref": "#/$defs/evidenceSource" }
+      },
+      "description": "Evidence about the available interaction, with explicit source provenance; never a behavioral profile."
+    },
     "userFactors": {
       "type": "object",
       "additionalProperties": false,
@@ -210,13 +227,13 @@
       "required": ["baselineStatus", "observedPatterns", "recurringThemes", "baselineDeviations", "interactionLoops", "contextualModifiers"],
       "properties": {
         "baselineStatus": { "type": "string", "enum": ["observed", "insufficient_evidence", "unknown"] },
-        "observedPatterns": { "type": "array", "items": { "$ref": "#/$defs/factor" } },
-        "recurringThemes": { "type": "array", "items": { "$ref": "#/$defs/factor" } },
-        "baselineDeviations": { "type": "array", "items": { "$ref": "#/$defs/factor" } },
-        "interactionLoops": { "type": "array", "items": { "$ref": "#/$defs/factor" } },
-        "contextualModifiers": { "type": "array", "items": { "$ref": "#/$defs/factor" } }
+        "observedPatterns": { "type": "array", "items": { "$ref": "#/$defs/behavioralEvidence" } },
+        "recurringThemes": { "type": "array", "items": { "$ref": "#/$defs/behavioralEvidence" } },
+        "baselineDeviations": { "type": "array", "items": { "$ref": "#/$defs/behavioralEvidence" } },
+        "interactionLoops": { "type": "array", "items": { "$ref": "#/$defs/behavioralEvidence" } },
+        "contextualModifiers": { "type": "array", "items": { "$ref": "#/$defs/behavioralEvidence" } }
       },
-      "description": "Evidence-bound interaction context, never a psychological profile or permanent user model. Omit when prior evidence is insufficient."
+      "description": "Evidence-bound interaction context, never a psychological profile or permanent user model. An observed baseline requires directly observed support."
     },
     "expectedBehavior": {
       "type": "object",

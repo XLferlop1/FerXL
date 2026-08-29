@@ -2,6 +2,15 @@
 
 This changelog records versioned changes to the Safety Corpus foundation. It does not record runtime enforcement changes.
 
+## v0.1.4 - Behavioral Evidence Provenance
+
+- Added per-item evidenceSource to multi-turn behavioral-context evidence: directly_observed, user_reported, or inferred.
+- Preserved baselineStatus as a separate evidence-state summary; observed baselines require directly observed support.
+- Made provenance optional for general multi-turn observations without requiring corpus-wide observation migration.
+- Migrated the three behavioral-context records and all multi-turn schema-version references.
+- Added development-only structural validation and provenance self-tests.
+- No safety category, level, policy, runtime, dependency, or classifier implementation changed.
+
 ## v0.1.3 - Pilot A Behavioral Context Revision
 
 - Added optional evidence-bound `behavioralContext` to both schemas for baseline status, observed patterns, recurring themes, baseline deviations, interaction loops, and contextual modifiers.

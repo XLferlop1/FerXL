@@ -148,6 +148,10 @@ Evidence is asymmetric: XLAI generally has stronger evidence for the user's dire
 
 Use the optional behavioral context structure only when available history supports it. It may describe observed patterns, recurring themes, baseline deviation, interaction loops, and contextual modifiers. It is not a psychological profile. Omit strengths, vulnerabilities, recipient perspective, and behavioral context when evidence is insufficient.
 
+Each behavioral-context item must retain `evidenceSource`: `directly_observed` for evidence visible in supplied turns/history, `user_reported` for history or context claimed by the user but not independently visible, and `inferred` for cautious derivation from available evidence. `baselineStatus` remains separate: `observed` requires directly observed support in `observedPatterns`; `insufficient_evidence` means available history cannot justify a stable baseline; `unknown` means no baseline can be determined. User-reported or inferred evidence alone cannot establish an observed baseline.
+
+Behavioral context describes only the available interaction. It must not create diagnoses, personality or attachment-style labels, hidden-motive claims, persistent recipient profiles, automatic cross-session memory, or stable identity from short-term conversational contrast.
+
 Humor, sarcasm, exaggeration, emojis, retractions, and minimization are contextual evidence. They do not independently make concerning language safe and do not independently prove harmful intent. Evaluate the complete available context. A retraction is neither proof of safety nor proof of concealed intent.
 
 ## Trajectory
