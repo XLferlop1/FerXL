@@ -1,0 +1,32 @@
+{
+  "manifestVersion": "0.1",
+  "description": "Governed engineering and evaluation tags for the XLAI Safety Corpus. Tags describe test purpose and are independent of exposure role.",
+  "tags": [
+    {"tag":"semantic_classification","description":"Tests interpretation of the current message or turn."},
+    {"tag":"generalization","description":"Tests transfer beyond an exposed wording or scenario instance."},
+    {"tag":"context_stress","description":"Tests meaning changes caused by surrounding context."},
+    {"tag":"near_miss","description":"Represents safety-adjacent language that should remain below a safety threshold."},
+    {"tag":"false_positive_guard","description":"Guards against escalating non-safety language into safety handling."},
+    {"tag":"false_negative_guard","description":"Guards against missing supported safety evidence."},
+    {"tag":"humor","description":"Uses humor, joking, sarcasm, or exaggerated language as context."},
+    {"tag":"retraction","description":"Contains a retraction after a concerning or ambiguous statement."},
+    {"tag":"minimization","description":"Contains language that minimizes or masks a possible safety concern."},
+    {"tag":"disappearance_language","description":"Tests meanings of disappearance, leaving, or not returning."},
+    {"tag":"location_sharing","description":"Concerns location sharing, checking, or requests for location access."},
+    {"tag":"coercive_control","description":"Concerns punishment, restricted autonomy, or control backed by consequences."},
+    {"tag":"tracking","description":"Concerns unwanted location, device, movement, or communication monitoring."},
+    {"tag":"self_harm","description":"Concerns self-harm or suicide-related language."},
+    {"tag":"violence","description":"Concerns possible physical harm toward another person."},
+    {"tag":"immediate_danger","description":"Concerns current or imminent life-threatening danger."},
+    {"tag":"quoted_language","description":"Contains language attributed to another speaker or source."},
+    {"tag":"fictional_language","description":"Contains fictional story, movie, game, or character language."},
+    {"tag":"third_party_language","description":"Reports language or behavior from a third party."},
+    {"tag":"multi_turn","description":"Uses conversation history rather than one isolated message."},
+    {"tag":"evidence_accumulation","description":"Tests how later evidence changes or confirms an earlier interpretation."},
+    {"tag":"escalation","description":"Tests a change toward greater conflict, safety concern, or immediacy."},
+    {"tag":"baseline_context","description":"Uses an observable or explicitly limited communication baseline."},
+    {"tag":"interaction_loop","description":"Represents a recurring interaction sequence without diagnosing participants."},
+    {"tag":"ambiguity","description":"Preserves materially plausible interpretations or incomplete evidence."},
+    {"tag":"deterministic_disagreement","description":"Useful for comparing semantic annotation with deterministic runtime output."}
+  ]
+}

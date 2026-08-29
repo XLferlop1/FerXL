@@ -1,0 +1,66 @@
+{
+  "manifestVersion": "0.1",
+  "description": "Family-level contamination and held-out protection registry for reviewed Pilot A/B records.",
+  "families": [
+    {
+      "familyId": "communication_conflict_boundary",
+      "name": "Communication, conflict, and boundaries",
+      "description": "Ordinary conflict, healthy boundaries, recipient withdrawal, and interaction loops that remain distinct from safety risk.",
+      "memberRecordIds": ["xlai-safety-000101","xlai-safety-000102","xlai-safety-000104","xlai-conversation-000202","xlai-conversation-000204","xlai-conversation-000403","xlai-conversation-000404"],
+      "contaminationTier": "MEDIUM",
+      "protectionReason": "Related communication patterns can leak whether conflict intensity is incorrectly treated as safety risk.",
+      "evaluationType": ["semantic_generalization","near_miss_resistance","adversarial_context"],
+      "restrictions": ["Disclose cross-role communication siblings in evaluation reports.","Do not use held-out members for prompt or few-shot construction."]
+    },
+    {
+      "familyId": "distress_humor_disappearance",
+      "name": "Distress, humor, and disappearance",
+      "description": "Humorous, figurative, employment, social, emotional, and death-adjacent meanings of similar severe surface language.",
+      "memberRecordIds": ["xlai-safety-000103","xlai-safety-000301","xlai-safety-000302","xlai-safety-000305","xlai-safety-000307","xlai-safety-000308","xlai-conversation-000401","xlai-conversation-000402"],
+      "contaminationTier": "VERY_HIGH",
+      "protectionReason": "The records form designed contrasts where humor and disappearance wording change meaning with context.",
+      "evaluationType": ["semantic_generalization","contextual_composition","near_miss_resistance","adversarial_context"],
+      "restrictions": ["Exclude held-out members and their scenario structure from training and calibration.","Exclude protected humor/disappearance templates from synthetic generation.","Report results by family rather than as independent samples."]
+    },
+    {
+      "familyId": "location_control_tracking",
+      "name": "Location sharing, control, and tracking",
+      "description": "Consent, reassurance seeking, monitoring, punishment, autonomy restriction, and tracking across turns.",
+      "memberRecordIds": ["xlai-safety-000105","xlai-safety-000106","xlai-conversation-000201","xlai-safety-000310","xlai-safety-000311","xlai-safety-000312","xlai-safety-000313","xlai-conversation-000407"],
+      "contaminationTier": "HIGH",
+      "protectionReason": "Single-turn and multi-turn records share a consent-to-control semantic ladder.",
+      "evaluationType": ["semantic_generalization","contextual_composition","multi_turn_transition","near_miss_resistance"],
+      "restrictions": ["Exclude held-out members from training, few-shot examples, calibration, and retrieval.","Protect the consent-to-punishment evidence sequence from synthetic templates.","Disclose sibling exposure when reporting held-out results."]
+    },
+    {
+      "familyId": "self_harm_retraction_escalation",
+      "name": "Self-harm, retraction, and escalation",
+      "description": "Indirect and direct self-harm language, retraction, minimization, and Level 4 to Level 5 transitions.",
+      "memberRecordIds": ["xlai-safety-000107","xlai-safety-000309","xlai-conversation-000203","xlai-safety-000303","xlai-safety-000304","xlai-conversation-000405","xlai-conversation-000408"],
+      "contaminationTier": "VERY_HIGH",
+      "protectionReason": "The records intentionally vary disclosure, retraction, masking, immediacy, and current action risk.",
+      "evaluationType": ["semantic_generalization","contextual_composition","multi_turn_transition","adversarial_context"],
+      "restrictions": ["Exclude held-out members from all training and development exposure before evaluation.","Do not use protected self-harm evidence sequences as generation templates.","Report retraction and escalation subgroups separately."]
+    },
+    {
+      "familyId": "violence_immediate_danger",
+      "name": "Violence and immediate danger",
+      "description": "Future or conditional violence intent contrasted with current external danger and emergency language.",
+      "memberRecordIds": ["xlai-safety-000108","xlai-safety-000317","xlai-safety-000318","xlai-conversation-000203","xlai-conversation-000408"],
+      "contaminationTier": "MEDIUM",
+      "protectionReason": "The small sample is useful for timing and severity regression but cannot support independent category statistics.",
+      "evaluationType": ["semantic_generalization","multi_turn_transition","near_miss_resistance"],
+      "restrictions": ["Keep held-out immediate-danger transitions protected until evaluation is complete.","Do not infer production performance from this small family."]
+    },
+    {
+      "familyId": "quoted_fictional_third_party_threat",
+      "name": "Quoted, fictional, and third-party threats",
+      "description": "Severe threat wording attributed to games, fiction, history, or other speakers rather than the user.",
+      "memberRecordIds": ["xlai-safety-000314","xlai-safety-000316","xlai-conversation-000406"],
+      "contaminationTier": "HIGH",
+      "protectionReason": "These are scarce negative controls for attribution and figurative-language false positives.",
+      "evaluationType": ["near_miss_resistance","adversarial_context","attribution_boundary"],
+      "restrictions": ["Protect held-out attributed-threat examples from prompt construction.","Retain the family as a regression and attribution-boundary test."]
+    }
+  ]
+}
