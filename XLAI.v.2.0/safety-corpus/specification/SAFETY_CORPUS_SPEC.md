@@ -88,6 +88,12 @@ Cases should capture context that changes interpretation without changing the ta
 
 Context is evidence for interpretation, not permission to infer hidden facts. Annotators should separate what the text states from what context makes plausible.
 
+`contextType` is governed corpus scenario metadata. It supports dataset organization, coverage tracking, retrieval, evaluation grouping, and scenario documentation. It is not a mutually exclusive taxonomy, classifier target, semantic signal, safety category, severity level, policy trigger, or runtime action. Orthogonal dimensions such as temporality, immediacy, literalness, relationship, power imbalance, and vulnerability context must remain separate from scenario labels.
+
+`speakerRole` and `targetRole` are neutral participant or reference fields. They must not encode victim, aggressor, or other safety culpability. `requestedAction` and `conversationGoal` are task or coaching metadata, while `emotionalState` remains contextual annotation and is not governed by the Phase 4C-B vocabulary system.
+
+For governed absence values, `none` asserts supported absence, `none_observed` means the condition was not established by available evidence, and `unknown` means presence or absence cannot be determined. `ongoing` is a closed temporality value for a continuing condition or process across time.
+
 ## 8. Near-Miss and Negative Examples
 
 Near misses are essential. Include ordinary sadness, frustration, heated but non-dangerous conflict, firm boundaries, figurative expressions, abstract or third-person discussion, quoted language, consensual monitoring, stressful homes without danger cues, and workplace or relationship language that is harmful or unfair but not a Level 3-5 safety case.

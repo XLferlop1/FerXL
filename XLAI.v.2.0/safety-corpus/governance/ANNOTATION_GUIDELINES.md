@@ -12,6 +12,16 @@ The Safety Knowledge Base remains authoritative for category definitions, levels
 
 Communication risk is separate from safety risk. A communication risk can be high while the case remains Safety Level 0. A safety-sensitive case may have little relevance to communication-risk labels.
 
+## Context Vocabulary Governance
+
+`contextType` is governed corpus scenario metadata for organization, coverage, retrieval, evaluation grouping, and scenario documentation. It is not a classifier target, semantic signal, safety category, severity, policy trigger, or runtime action. It is not a mutually exclusive taxonomy.
+
+Context dimensions remain separate from scenario metadata. `speakerRole` and `targetRole` are neutral participant or reference roles and must not encode victim, aggressor, or other safety culpability. `requestedAction` and `conversationGoal` describe task or coaching metadata. `emotionalState` remains contextual annotation and is outside this vocabulary-governance phase.
+
+For governed dimensions, `none` is a positive absence assertion, `none_observed` means the available evidence did not establish the condition, and `unknown` means presence or absence cannot be determined. Do not substitute one for another merely because a warning sign is not visible. `ongoing` is a canonical temporality value for a condition or process continuing across time.
+
+Dimension extensions require a canonical lower_snake_case ID, definition, positive and negative examples, status, aliases, and review. Extensions must not create safety policy or replace semantic signals. The context-type registry governs scenario metadata only; registry membership does not imply model classification or enforcement.
+
 ## Evidence Vocabulary
 
 **OBSERVATION**

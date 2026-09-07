@@ -10,6 +10,12 @@ The Safety Knowledge Base is the authoritative policy source. The Safety Corpus 
 
 Communication risk is not safety risk. Trajectory intelligence is not safety enforcement. Recipient perspective is not factual mind-reading. Vulnerability factors are not diagnosis. Strengths and vulnerabilities describe interaction evidence, not permanent identity. Uncertainty is preferable to fabricated certainty. Gold labels come from review standards, not model confidence.
 
+Context governance separates scenario metadata from orthogonal dimensions. `contextType` is corpus scenario metadata only and must not be treated as a classifier output, semantic signal, safety category, severity, policy, or runtime action. Participant roles are neutral references, not safety-role judgments. `requestedAction`, `conversationGoal`, and `emotionalState` are outside the Phase 4C-B controlled vocabulary contract.
+
+For absence annotations, `none` asserts supported absence, `none_observed` records that presence was not established, and `unknown` preserves an unresolved presence-or-absence judgment. `ongoing` means a continuing condition or process and is distinct from merely current.
+
+New governed vocabulary extensions require a lower_snake_case canonical ID, definition, examples, non-examples, status, aliases, and approval review. Context registries provide annotation governance only and do not create a second safety taxonomy.
+
 ## Review Quality and Annotation Certainty
 
 The current schemas separate two independent concepts. `reviewStatus` records review quality. `annotationCertainty` records the evidence state. Neither field is model confidence.

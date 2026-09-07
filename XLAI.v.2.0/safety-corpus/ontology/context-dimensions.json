@@ -17,21 +17,25 @@
   "dimensions": {
     "speakerRole": {
       "type": "string",
-      "recommendedValues": ["potential_target", "potential_aggressor", "observer", "third_party_reporter", "participant", "unknown"],
+      "recommendedValues": ["user", "other", "system", "unknown"],
+      "approvedExtensions": [],
       "unknownValue": "unknown",
       "allowExtension": true,
-      "description": "The role supported by available evidence; do not assign a harmful role solely from wording."
+      "extensionContract": {"id": "lower_snake_case", "definition": true, "examples": true, "nonExamples": true, "status": true, "aliases": true},
+      "description": "Neutral conversational participant or reference role for the speaker; never a safety culpability or victim/aggressor judgment."
     },
     "targetRole": {
       "type": "string",
-      "recommendedValues": ["potential_target", "potential_aggressor", "observer", "third_party_reporter", "participant", "unknown"],
+      "recommendedValues": ["self", "partner", "friend", "manager", "coworkers", "other_person", "fictional_character", "unknown"],
+      "approvedExtensions": [],
       "unknownValue": "unknown",
       "allowExtension": true,
-      "description": "The possible role of the person or group discussed; flexible because target identity may be unsupported."
+      "extensionContract": {"id": "lower_snake_case", "definition": true, "examples": true, "nonExamples": true, "status": true, "aliases": true},
+      "description": "Neutral participant or reference role describing who or what the message concerns, addresses, or targets; never a safety culpability judgment."
     },
     "temporality": {
       "type": "string",
-      "values": ["historical", "recent", "current", "future", "unspecified", "unknown"],
+      "values": ["historical", "recent", "current", "ongoing", "future", "unspecified", "unknown"],
       "unknownValue": "unknown",
       "description": "When the described event or state applies."
     },
@@ -49,30 +53,52 @@
     },
     "relationship": {
       "type": "string",
-      "values": ["romantic_partner", "spouse", "ex_partner", "parent", "child", "family", "friend", "coworker", "manager", "employee", "client", "customer", "acquaintance", "stranger", "unknown"],
+      "values": ["romantic_partner", "spouse", "ex_partner", "parent", "child", "family", "friend", "coworker", "manager", "employee", "client", "customer", "acquaintance", "stranger", "self", "unknown"],
+      "approvedExtensions": [],
       "unknownValue": "unknown",
       "allowExtension": true,
+      "extensionContract": {"id": "lower_snake_case", "definition": true, "examples": true, "nonExamples": true, "status": true, "aliases": true},
       "description": "Communication relationship reference only. This list is not evidence of safety risk."
     },
     "intent": {
       "type": "string",
       "values": ["communication_help", "rewrite_request", "advice_seeking", "venting", "reassurance_seeking", "reporting_experience", "reporting_current_danger", "threatening", "harm_planning", "factual_question", "reflective_processing", "joking", "quoting", "fictional_discussion", "hypothetical_discussion", "unknown"],
+      "approvedExtensions": [
+        {"id":"vent_and_accuse","definition":"Expressing frustration while assigning responsibility to another person.","status":"approved","examples":["I need to say how angry I am about what happened."],"nonExamples":["A neutral factual question about the situation."],"aliases":[]},
+        {"id":"set_boundary","definition":"Stating a limit or request about contact, space, or participation.","status":"approved","examples":["I need some space this week."],"nonExamples":["Threatening punishment for another person's choice."],"aliases":[]},
+        {"id":"seek_regulation","definition":"Requesting support or describing a need to regain emotional stability.","status":"approved","examples":["I need help calming down so I can get through today."],"nonExamples":["Reporting a current physical emergency."],"aliases":[]},
+        {"id":"accuse_and_confront","definition":"Confronting another person while asserting blame or a perceived violation.","status":"approved","examples":["I want to address what I believe was dishonest."],"nonExamples":["Setting a boundary without assigning blame."],"aliases":[]},
+        {"id":"describe_control","definition":"Reporting another person's controlling behavior or consequences for ordinary choices.","status":"approved","examples":["I am describing what happens when I say no."],"nonExamples":["A voluntary request with no controlling consequence."],"aliases":[]},
+        {"id":"describe_monitoring","definition":"Reporting observation, tracking, or monitoring of a person, device, or location.","status":"approved","examples":["I am explaining how someone keeps finding my location."],"nonExamples":["Mutual, revocable location sharing described without concern."],"aliases":[]},
+        {"id":"express_self_harm_risk","definition":"Communicating self-directed harm or death-related concern as the user's own experience or risk.","status":"approved","examples":["I have been thinking about hurting myself."],"nonExamples":["Discussing fictional self-harm or quoting another speaker."],"aliases":[]},
+        {"id":"threaten_retribution","definition":"Communicating a threat or intention to retaliate against another person.","status":"approved","examples":["I might hurt him if he comes back."],"nonExamples":["Describing anger without an intention to harm."],"aliases":[]}
+      ],
       "unknownValue": "unknown",
       "allowExtension": true,
+      "extensionContract": {"id": "lower_snake_case", "definition": true, "examples": true, "nonExamples": true, "status": true, "aliases": true},
       "description": "Requested or expressed purpose. Harmful intent requires evidence and must not be inferred solely from safety-related words."
     },
     "powerImbalance": {
       "type": "string",
-      "values": ["none_observed", "possible", "evident", "unknown"],
+      "values": ["none", "none_observed", "possible", "evident", "unknown"],
       "unknownValue": "unknown",
-      "description": "An interaction-level power observation, not a permanent relationship label."
+      "description": "An interaction-level power observation. none asserts sufficient evidence of no imbalance; none_observed means no imbalance was established; unknown means presence or absence cannot be determined."
     },
     "vulnerabilityContext": {
       "type": "string",
-      "recommendedValues": ["none_observed", "possible", "evident", "unknown"],
+      "recommendedValues": ["none", "none_observed", "possible", "evident", "unknown"],
+      "approvedExtensions": [
+        {"id":"anger_intense","definition":"Strong anger expressed in the current interaction.","status":"approved","examples":["The user describes persistent intense anger."],"nonExamples":["A neutral disagreement without heightened anger."],"aliases":[]},
+        {"id":"betrayal","definition":"A perceived breach of trust or loyalty is central to the current interaction.","status":"approved","examples":["The user describes discovering messages they interpret as dishonest."],"nonExamples":["Ordinary conflict without a perceived trust violation."],"aliases":[]},
+        {"id":"isolated_from_support","definition":"The interaction includes reduced access to family, friends, or other support.","status":"approved","examples":["The user reports consequences for contacting a family member."],"nonExamples":["A voluntary request for temporary privacy or space."],"aliases":[]},
+        {"id":"stress","definition":"Current strain or overload is explicitly described without assigning a diagnosis.","status":"approved","examples":["The user says they feel overwhelmed and cannot cope today."],"nonExamples":["A neutral message with no strain evidence."],"aliases":[]},
+        {"id":"suicidal_ideation","definition":"Self-directed thoughts about death or disappearance are explicitly present.","status":"approved","examples":["The user reports recurring thoughts that others would be better off without them."],"nonExamples":["A figurative workplace joke about being killed."],"aliases":[]},
+        {"id":"workplace_exposure","definition":"The interaction includes repeated unwanted presence, contact, or monitoring connected to the user's workplace.","status":"approved","examples":["Someone repeatedly appears near the user's office."],"nonExamples":["A routine workplace interaction without unwanted contact."],"aliases":[]}
+      ],
       "unknownValue": "unknown",
       "allowExtension": true,
-      "description": "Contextual vulnerability evidence only; do not use diagnostic or permanent personality labels."
+      "extensionContract": {"id": "lower_snake_case", "definition": true, "examples": true, "nonExamples": true, "status": true, "aliases": true},
+      "description": "Contextual vulnerability evidence only; none asserts sufficient evidence of no relevant vulnerability, none_observed means none was established, and unknown means presence or absence cannot be determined. Do not use diagnostic or permanent personality labels."
     }
   },
   "interactionIntelligenceFamilies": {

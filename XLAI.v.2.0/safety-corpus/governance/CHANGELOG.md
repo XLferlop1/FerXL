@@ -2,6 +2,15 @@
 
 This changelog records versioned changes to the Safety Corpus foundation. It does not record runtime enforcement changes.
 
+## v0.1.5 - Context Vocabulary Governance
+
+- Clarified neutral participant/reference semantics for speakerRole and targetRole.
+- Added ongoing to the canonical closed temporality vocabulary.
+- Documented none, none_observed, and unknown as distinct evidence states.
+- Added a separate corpus scenario metadata registry for current contextType values.
+- Added development-only ontology and scenario-registry validation without changing schema shape, safety policy, or runtime behavior.
+- Kept requestedAction, conversationGoal, and emotionalState outside the Phase 4C-B controlled vocabulary contract.
+
 ## v0.1.4 - Behavioral Evidence Provenance
 
 - Added per-item evidenceSource to multi-turn behavioral-context evidence: directly_observed, user_reported, or inferred.

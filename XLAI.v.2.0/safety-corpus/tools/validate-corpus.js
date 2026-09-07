@@ -9,6 +9,9 @@ const {
   getSafetyCategory,
 } = require("../../engine/safetyKnowledgeBase");
 
+const ONTOLOGY_DIR = path.join(__dirname, "../ontology");
+const CONTEXT_DIMENSIONS = JSON.parse(fs.readFileSync(path.join(ONTOLOGY_DIR, "context-dimensions.json"), "utf8"));
+const CONTEXT_TYPES = JSON.parse(fs.readFileSync(path.join(ONTOLOGY_DIR, "context-types.json"), "utf8"));
 const REVIEW_STATUSES = new Set(["draft", "reviewed", "gold"]);
 const ANNOTATION_CERTAINTIES = new Set(["clear", "uncertain", "ambiguous"]);
 const EVIDENCE_SOURCES = new Set(["directly_observed", "user_reported", "inferred"]);
@@ -21,6 +24,8 @@ const EXPECTED_BEHAVIOR_FIELDS = [
   "showSafetyResources",
 ];
 
+const GOVERNED_CONTEXT_FIELDS = ["speakerRole", "targetRole", "relationship", "intent", "vulnerabilityContext", "temporality", "immediacy", "literalness", "powerImbalance"];
+
 function isObject(value) {
   return value !== null && typeof value === "object" && !Array.isArray(value);
 }
@@ -31,6 +36,93 @@ function addError(errors, file, record, field, reason) {
     recordId: isObject(record) && typeof record.id === "string" ? record.id : "unknown",
     field,
     reason,
+  });
+}
+
+function canonicalId(value) {
+  return typeof value === "string" && /^[a-z][a-z0-9]*(?:_[a-z0-9]+)*$/.test(value);
+}
+
+function validateContextTypeRegistry(registry) {
+  const errors = [];
+  if (!isObject(registry) || registry.registryType !== "corpus_scenario_metadata" || !Array.isArray(registry.entries)) {
+    errors.push({ field: "contextTypeRegistry", reason: "must be a corpus_scenario_metadata registry with entries" });
+    return errors;
+  }
+  const ids = new Set();
+  const canonicalIds = new Set(registry.entries.filter((entry) => isObject(entry) && typeof entry.id === "string").map((entry) => entry.id));
+  const aliases = new Map();
+  registry.entries.forEach((entry, index) => {
+    const field = `contextTypeRegistry.entries[${index}]`;
+    if (!isObject(entry) || !canonicalId(entry.id) || typeof entry.definition !== "string" || !entry.definition.trim() || typeof entry.status !== "string" || !entry.status.trim()) {
+      errors.push({ field, reason: "must contain canonical lower_snake_case id, non-empty definition, and status" });
+      return;
+    }
+    if (ids.has(entry.id)) errors.push({ field: `${field}.id`, reason: "duplicate canonical registry ID" });
+    ids.add(entry.id);
+    if (Object.prototype.hasOwnProperty.call(entry, "aliases")) {
+      if (!Array.isArray(entry.aliases) || entry.aliases.some((alias) => typeof alias !== "string" || !canonicalId(alias))) {
+        errors.push({ field: `${field}.aliases`, reason: "must be lower_snake_case strings" });
+      } else entry.aliases.forEach((alias) => {
+        if (alias === entry.id || canonicalIds.has(alias) || aliases.has(alias)) errors.push({ field: `${field}.aliases`, reason: `alias '${alias}' collides with a canonical ID or alias` });
+        aliases.set(alias, entry.id);
+      });
+    }
+  });
+  return errors;
+}
+
+function dimensionValues(dimension) {
+  if (!isObject(dimension)) return new Set();
+  return new Set([...(Array.isArray(dimension.values) ? dimension.values : []), ...(Array.isArray(dimension.recommendedValues) ? dimension.recommendedValues : []), ...(Array.isArray(dimension.approvedExtensions) ? dimension.approvedExtensions.map((extension) => typeof extension === "string" ? extension : extension && extension.id) : [])].filter(Boolean));
+}
+
+function validateDimensionDefinitions(dimensions) {
+  const errors = [];
+  const definitions = isObject(dimensions) && isObject(dimensions.dimensions) ? dimensions.dimensions : {};
+  Object.entries(definitions).forEach(([dimensionName, dimension]) => {
+    if (!isObject(dimension) || !Array.isArray(dimension.approvedExtensions)) return;
+    const baseValues = dimensionValues({ ...dimension, approvedExtensions: [] });
+    const extensionIds = new Set();
+    const allExtensionIds = new Set(dimension.approvedExtensions.filter((extension) => isObject(extension) && typeof extension.id === "string").map((extension) => extension.id));
+    const aliases = new Set();
+    dimension.approvedExtensions.forEach((extension, index) => {
+      const field = `contextDimensions.${dimensionName}.approvedExtensions[${index}]`;
+      if (!isObject(extension) || !canonicalId(extension.id) || typeof extension.definition !== "string" || !extension.definition.trim() || extension.status !== "approved" || !Array.isArray(extension.examples) || !Array.isArray(extension.nonExamples) || !Array.isArray(extension.aliases)) {
+        errors.push({ field, reason: "must contain lower_snake_case id, definition, status approved, examples, nonExamples, and aliases" });
+        return;
+      }
+      if (extensionIds.has(extension.id) || baseValues.has(extension.id)) errors.push({ field: `${field}.id`, reason: "duplicate extension or canonical dimension ID" });
+      extensionIds.add(extension.id);
+      extension.aliases.forEach((alias) => {
+        if (!canonicalId(alias) || baseValues.has(alias) || allExtensionIds.has(alias) || aliases.has(alias)) errors.push({ field: `${field}.aliases`, reason: `alias '${alias}' collides with a canonical value, extension ID, or alias` });
+        aliases.add(alias);
+      });
+    });
+  });
+  return errors;
+}
+
+function validateContextGovernance(record, file, errors, dimensions = CONTEXT_DIMENSIONS, registry = CONTEXT_TYPES) {
+  validateDimensionDefinitions(dimensions).forEach((error) => addError(errors, file, record, error.field, error.reason));
+  const registryErrors = validateContextTypeRegistry(registry);
+  registryErrors.forEach((error) => addError(errors, file, record, error.field, error.reason));
+  const contextType = record.input && record.input.contextType !== undefined
+    ? record.input.contextType
+    : record.conversationMetadata && record.conversationMetadata.contextType;
+  if (contextType !== undefined && (!isObject(registry) || !registry.entries.some((entry) => entry && entry.id === contextType))) {
+    addError(errors, file, record, "contextType", "must be a registered canonical context type ID");
+  }
+  const containers = [];
+  if (isObject(record.context)) containers.push(["context", record.context]);
+  if (isObject(record.conversationMetadata)) containers.push(["conversationMetadata", record.conversationMetadata]);
+  containers.forEach(([containerName, container]) => {
+    GOVERNED_CONTEXT_FIELDS.forEach((field) => {
+      if (container[field] === undefined || container[field] === null) return;
+      const dimension = dimensions && dimensions.dimensions && dimensions.dimensions[field];
+      if (!dimension) return;
+      if (!dimensionValues(dimension).has(container[field])) addError(errors, file, record, `${containerName}.${field}`, "must be a governed canonical value or approved extension");
+    });
   });
 }
 
@@ -218,7 +310,7 @@ function validateConversation(record, file, errors) {
   }
 }
 
-function validateRecord(record, file) {
+function validateRecord(record, file, dimensions = CONTEXT_DIMENSIONS, registry = CONTEXT_TYPES) {
   const errors = [];
   if (!isObject(record)) {
     addError(errors, file, record, "record", "must be an object");
@@ -228,6 +320,7 @@ function validateRecord(record, file) {
   const category = validateSafetyAnnotation(record.safetyAnnotation, file, record, "safetyAnnotation", errors, false);
   validateExpectedBehavior(record.expectedBehavior, category, file, record, errors);
   validateAnnotationMeta(record.annotationMeta, file, record, errors);
+  validateContextGovernance(record, file, errors, dimensions, registry);
 
   if (Array.isArray(record.turns)) {
     validateConversation(record, file, errors);
@@ -429,13 +522,101 @@ function runSelfTest() {
       record: { ...baseRecord("none", 0), behavioralContext: { baselineStatus: "unknown", observedPatterns: [{}], recurringThemes: [], baselineDeviations: [], interactionLoops: [], contextualModifiers: [] } },
       shouldPass: false, expectedError: "observedPatterns[0]",
     },
+    {
+      name: "context: registered scenario and canonical closed values",
+      record: { ...baseRecord("none", 0), input: { contextType: "self_harm_risk" }, context: { temporality: "current", immediacy: "none", literalness: "literal", powerImbalance: "none", vulnerabilityContext: "unknown" } },
+      shouldPass: true,
+    },
+    {
+      name: "context: ongoing temporality",
+      record: { ...baseRecord("none", 0), input: { contextType: "location_control_escalation" }, context: { temporality: "ongoing" } },
+      shouldPass: true,
+    },
+    {
+      name: "context: approved extensible value",
+      record: { ...baseRecord("none", 0), input: { contextType: "emotional_distress" }, context: { vulnerabilityContext: "anger_intense" } },
+      shouldPass: true,
+    },
+    {
+      name: "context: absence distinctions",
+      record: { ...baseRecord("none", 0), input: { contextType: "relationship_boundary" }, context: { powerImbalance: "none", vulnerabilityContext: "none_observed" } },
+      shouldPass: true,
+    },
+    {
+      name: "context: unknown closed dimension",
+      record: { ...baseRecord("none", 0), input: { contextType: "relationship_boundary" }, context: { temporality: "sometimes" } },
+      shouldPass: false, expectedError: "temporality",
+    },
+    {
+      name: "context: unknown unregistered extension",
+      record: { ...baseRecord("none", 0), input: { contextType: "relationship_boundary" }, context: { relationship: "roommate" } },
+      shouldPass: false, expectedError: "relationship",
+    },
+    {
+      name: "context: unknown scenario type",
+      record: { ...baseRecord("none", 0), input: { contextType: "unregistered_scenario" } },
+      shouldPass: false, expectedError: "contextType",
+    },
+    {
+      name: "context registry: duplicate canonical ID",
+      record: { ...baseRecord("none", 0) },
+      registry: { ...CONTEXT_TYPES, entries: [CONTEXT_TYPES.entries[0], CONTEXT_TYPES.entries[0]] },
+      shouldPass: false, expectedError: "duplicate canonical registry ID",
+    },
+    {
+      name: "context registry: alias collision",
+      record: { ...baseRecord("none", 0) },
+      registry: { ...CONTEXT_TYPES, entries: [{ id: "alpha_type", definition: "Alpha", status: "active", aliases: ["beta_type"] }, { id: "beta_type", definition: "Beta", status: "active" }] },
+      shouldPass: false, expectedError: "alias",
+    },
+    {
+      name: "context registry: alias is not canonical",
+      record: { ...baseRecord("none", 0), input: { contextType: "old_scenario" } },
+      registry: { ...CONTEXT_TYPES, entries: [{ id: "registered_scenario", definition: "Scenario", status: "active", aliases: ["old_scenario"] }] },
+      shouldPass: false, expectedError: "contextType",
+    },
+    {
+      name: "context registry: malformed item",
+      record: { ...baseRecord("none", 0) },
+      registry: { ...CONTEXT_TYPES, entries: [{ id: "bad id", definition: "", status: "" }] },
+      shouldPass: false, expectedError: "contextTypeRegistry.entries[0]",
+    },
+    {
+      name: "context extension: metadata-bearing approved value",
+      record: { ...baseRecord("none", 0), input: { contextType: "relationship_boundary" }, context: { intent: "set_boundary" } },
+      shouldPass: true,
+    },
+    {
+      name: "context extension: reject bare string",
+      record: { ...baseRecord("none", 0), input: { contextType: "relationship_boundary" } },
+      dimensions: { ...CONTEXT_DIMENSIONS, dimensions: { ...CONTEXT_DIMENSIONS.dimensions, intent: { ...CONTEXT_DIMENSIONS.dimensions.intent, approvedExtensions: ["bare_value"] } } },
+      shouldPass: false, expectedError: "approvedExtensions[0]",
+    },
+    {
+      name: "context extension: reject missing definition",
+      record: { ...baseRecord("none", 0), input: { contextType: "relationship_boundary" } },
+      dimensions: { ...CONTEXT_DIMENSIONS, dimensions: { ...CONTEXT_DIMENSIONS.dimensions, intent: { ...CONTEXT_DIMENSIONS.dimensions.intent, approvedExtensions: [{ id: "missing_definition", status: "approved", examples: [], nonExamples: [], aliases: [] }] } } },
+      shouldPass: false, expectedError: "approvedExtensions[0]",
+    },
+    {
+      name: "context extension: reject invalid status",
+      record: { ...baseRecord("none", 0), input: { contextType: "relationship_boundary" } },
+      dimensions: { ...CONTEXT_DIMENSIONS, dimensions: { ...CONTEXT_DIMENSIONS.dimensions, intent: { ...CONTEXT_DIMENSIONS.dimensions.intent, approvedExtensions: [{ id: "invalid_status", definition: "Invalid status fixture.", status: "draft", examples: [], nonExamples: [], aliases: [] }] } } },
+      shouldPass: false, expectedError: "approvedExtensions[0]",
+    },
+    {
+      name: "context extension: reject duplicate ID",
+      record: { ...baseRecord("none", 0), input: { contextType: "relationship_boundary" } },
+      dimensions: { ...CONTEXT_DIMENSIONS, dimensions: { ...CONTEXT_DIMENSIONS.dimensions, intent: { ...CONTEXT_DIMENSIONS.dimensions.intent, approvedExtensions: [{ id: "duplicate_value", definition: "First value.", status: "approved", examples: [], nonExamples: [], aliases: [] }, { id: "duplicate_value", definition: "Second value.", status: "approved", examples: [], nonExamples: [], aliases: [] }] } } },
+      shouldPass: false, expectedError: "duplicate extension",
+    },
   ];
 
   let failed = false;
-  cases.forEach(({ name, record, shouldPass, expectedError }) => {
-    const errors = validateRecord(record, "self-test");
+  cases.forEach(({ name, record, shouldPass, expectedError, registry, dimensions }) => {
+    const errors = validateRecord(record, "self-test", dimensions || CONTEXT_DIMENSIONS, registry || CONTEXT_TYPES);
     const passed = errors.length === 0;
-    if (passed !== shouldPass || (expectedError && !errors.some((error) => error.field.includes(expectedError)))) {
+    if (passed !== shouldPass || (expectedError && !errors.some((error) => error.field.includes(expectedError) || error.reason.includes(expectedError)))) {
       failed = true;
       console.error(`SELF-TEST FAILED: ${name}`);
       errors.forEach((error) => console.error(`  ${error.field}: ${error.reason}`));
