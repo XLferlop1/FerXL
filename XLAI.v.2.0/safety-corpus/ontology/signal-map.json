@@ -146,29 +146,29 @@
     {
       "signalKey": "direct_self_harm_ideation",
       "source": "semantic",
-      "description": "The speaker directly expresses thoughts or desire to harm themselves.",
+      "description": "The speaker explicitly expresses self-referential thoughts, wishes, desires, or contemplation involving self-harm, suicide, or death.",
       "possibleCategories": ["self_harm_or_suicide"],
       "possibleLevels": [4],
-      "evidenceRequirements": ["Use direct self-referential evidence and distinguish current intent from quotation or discussion"],
-      "ambiguityNotes": ["Figurative phrases and third-person discussion require context."]
+      "evidenceRequirements": ["Use explicit self-referential self-harm, suicide, or death content and distinguish it from quotation or discussion"],
+      "ambiguityNotes": ["A direct death wish or contemplation does not by itself establish intent, a plan, preparation, action, or immediate physical danger.", "Figurative phrases and third-person discussion require context."]
     },
     {
       "signalKey": "indirect_self_harm_ideation",
       "source": "semantic",
-      "description": "Indirect language plausibly suggests self-harm or not wanting to live.",
+      "description": "Context-dependent language plausibly suggests self-harm, suicide, or death without explicit self-referential self-harm or death content.",
       "possibleCategories": ["self_harm_or_suicide", "emotional_distress"],
       "possibleLevels": [1, 4],
       "evidenceRequirements": ["Record the indirect wording and contextual evidence supporting the interpretation"],
-      "ambiguityNotes": ["Do not convert hopelessness, exhaustion, or idioms into self-harm intent without evidence."]
+      "ambiguityNotes": ["Do not convert hopelessness, exhaustion, or idioms into self-harm intent without evidence.", "Masking, joking, minimization, or retraction does not make explicit ideation indirect; those features modify context and certainty."]
     },
     {
       "signalKey": "suicidal_intent",
       "source": "semantic",
-      "description": "The speaker expresses possible intent to die or end their life.",
+      "description": "The speaker expresses intent or a plan to cause their own death.",
       "possibleCategories": ["self_harm_or_suicide"],
       "possibleLevels": [4],
-      "evidenceRequirements": ["Identify self-referential intent and relevant timing or plan evidence if stated"],
-      "ambiguityNotes": ["Historical, quoted, fictional, or hypothetical references must remain distinct."]
+      "evidenceRequirements": ["Identify self-referential intended or planned self-directed death; record timing or plan evidence when stated"],
+      "ambiguityNotes": ["A death wish, ideation, distress, or contemplation alone is insufficient.", "Suicidal intent does not by itself establish immediate physical danger.", "Historical, quoted, fictional, or hypothetical references must remain distinct."]
     },
     {
       "signalKey": "harm_intent_toward_other",
@@ -182,11 +182,11 @@
     {
       "signalKey": "immediate_physical_danger",
       "source": "semantic",
-      "description": "A current, time-sensitive physical danger appears to be happening or imminent.",
+      "description": "Current or imminent concrete physical danger appears to be happening.",
       "possibleCategories": ["immediate_danger"],
       "possibleLevels": [5],
-      "evidenceRequirements": ["Require current timing and concrete danger evidence", "Distinguish emergency need from general fear"],
-      "ambiguityNotes": ["Urgency without danger evidence is not immediate physical danger."]
+      "evidenceRequirements": ["Require current or imminent timing and concrete danger evidence", "Use resolved conversational context when an anaphoric statement depends on an established antecedent", "Distinguish emergency need from general fear"],
+      "ambiguityNotes": ["Urgency without danger evidence is not immediate physical danger.", "A vague phrase such as 'I'm about to do it' is not self-harm immediate danger unless available context establishes what 'it' refers to.", "This signal describes evidence and does not independently assign a safety level, response action, or policy escalation."]
     },
     {
       "signalKey": "access_to_weapon_in_danger_context",

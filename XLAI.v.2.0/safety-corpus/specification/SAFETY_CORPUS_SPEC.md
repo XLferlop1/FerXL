@@ -126,6 +126,10 @@ Future records should preserve turn order and distinguish newly observed evidenc
 
 A single harmless-looking turn can become safety-relevant in context, while a dramatic isolated phrase can be clarified as figurative or quoted. Multi-turn data must not encourage the classifier to assume facts absent from the conversation.
 
+Turn-level semantic signals describe evidence supported by that turn. `cumulativeState` preserves established cross-turn facts, history, unknowns, and transitions. The top-level safety annotation represents the final established conversation assessment; when it carries semantic signals, they are relevant to that final state rather than only the final turn or an automatic union of all historical evidence.
+
+Retraction, joking, masking, and minimization are contextual evidence that can change certainty or later interpretation, but they do not automatically erase established evidence or convert explicit ideation into indirect ideation. Concrete preparation toward self-harm or suicide remains deferred: the current corpus has no independently adjudicated preparation examples, and no preparation signal is introduced in this phase.
+
 ## 11. Conversation Trajectory Intelligence
 
 Conversation Trajectory Intelligence is probabilistic forecasting, not certainty. XLAI may estimate plausible directions such as clarification, productive discussion, repair, reconciliation, compromise, boundary establishment, defensiveness, misunderstanding, withdrawal, escalation, retaliation, relationship rupture, workplace consequence, safety escalation, or uncertain outcome.

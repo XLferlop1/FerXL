@@ -87,6 +87,8 @@ Record existing deterministic signals exactly when the text supports them. Do no
 
 Do not require deterministic signals for a semantic-only case. Do not let a semantic signal independently redefine policy or change current enforcement.
 
+For multi-turn conversations, turn-level `semanticSignals` describe evidence supported by that turn only. Do not automatically copy an earlier turn's signals forward. `cumulativeState` preserves cross-turn established facts, history, important unknowns, and transitions. The top-level `safetyAnnotation` is the final established conversation assessment; its signals are relevant to that final state, neither an automatic historical union nor merely the last turn's signals.
+
 ## Ambiguity Handling
 
 Cases with insufficient evidence should preserve uncertainty rather than automatically escalating or minimizing risk. Record the competing plausible interpretations, evidence for each, and the missing context that would distinguish them.
@@ -163,6 +165,10 @@ Each behavioral-context item must retain `evidenceSource`: `directly_observed` f
 Behavioral context describes only the available interaction. It must not create diagnoses, personality or attachment-style labels, hidden-motive claims, persistent recipient profiles, automatic cross-session memory, or stable identity from short-term conversational contrast.
 
 Humor, sarcasm, exaggeration, emojis, retractions, and minimization are contextual evidence. They do not independently make concerning language safe and do not independently prove harmful intent. Evaluate the complete available context. A retraction is neither proof of safety nor proof of concealed intent.
+
+A retraction, joke, masking phrase, or minimization does not automatically erase previously established evidence or convert direct self-harm ideation into indirect ideation. It may change certainty, provide contrary evidence, affect the current-state interpretation, and inform later cumulative reasoning.
+
+Concrete preparation toward self-harm or suicide remains a future semantic-design question. The current corpus has no adjudicated preparation examples, so Phase 4C-C introduces no canonical preparation signal. Revisit it only after representative examples are created and independently adjudicated.
 
 ## Trajectory
 

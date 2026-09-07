@@ -2,6 +2,13 @@
 
 This changelog records versioned changes to the Safety Corpus foundation. It does not record runtime enforcement changes.
 
+## v0.1.5 - Self-Harm Semantic Clarification
+
+- Clarified direct and indirect self-harm ideation, suicidal intent, and immediate physical danger as evidence descriptors rather than policy or level proxies.
+- Corrected two single-turn signal arrays where direct disclosure had been over-labeled as intent or indirect ideation.
+- Defined turn-local semantic signals, cumulative cross-turn state, and top-level final-state signal responsibilities.
+- Deferred any preparation signal pending representative independently adjudicated corpus examples.
+
 ## v0.1.5 - Context Vocabulary Governance
 
 - Clarified neutral participant/reference semantics for speakerRole and targetRole.
