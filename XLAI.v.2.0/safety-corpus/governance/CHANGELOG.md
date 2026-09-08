@@ -2,6 +2,15 @@
 
 This changelog records versioned changes to the Safety Corpus foundation. It does not record runtime enforcement changes.
 
+## v0.1.8 - Phase 4C-F manifest validator structural hardening
+
+- Hardened exposure-manifest, protected-family, and evaluation-tag root and entry validation so malformed structures fail through deterministic diagnostics.
+- Strengthened protected-family structural checks for required metadata, valid member containers, and at least two unique member records.
+- Strengthened evaluation-tag registry checks for valid entries, unique tag IDs, and required descriptions.
+- Preserved existing cross-file assignment, schema-version, family, sibling, tag, and distribution checks without changing exposure policy.
+- Expanded development-only manifest-validator self-tests, including malformed roots and entries, family/member constraints, tag registry constraints, and valid asymmetric siblings.
+- Made no manifest-data, corpus, ontology, schema, runtime, dependency, classifier, or exposure-governance changes.
+
 ## v0.1.7 - Phase 4C-E conversation consistency
 
 - Clarified the distinct responsibilities of local turn annotations, retained cumulative state, final conversation adjudication, and final-state-derived expected behavior.

@@ -34,6 +34,14 @@ const EXPECTED_CATEGORY_ROLE_COUNTS = {
   immediate_danger: { TRAINING: 0, DEVELOPMENT: 1, HELD_OUT: 2, total: 3 },
 };
 
+function isObject(value) {
+  return value !== null && typeof value === "object" && !Array.isArray(value);
+}
+
+function nonEmptyString(value) {
+  return typeof value === "string" && value.trim() !== "";
+}
+
 function readJson(filePath) {
   return JSON.parse(fs.readFileSync(filePath, "utf8"));
 }
@@ -72,32 +80,90 @@ function countValues(values) {
   }, {});
 }
 
+function validateManifestRoot(manifest, errors) {
+  if (!isObject(manifest)) {
+    addError(errors, "manifest", "exposure-manifest", "non-null object", manifest);
+    return false;
+  }
+  if (!Array.isArray(manifest.records)) addError(errors, "manifest", "exposure-manifest.records", "array", manifest.records);
+  return true;
+}
+
+function validateTagRegistry(tagRegistry, errors) {
+  if (!isObject(tagRegistry)) {
+    addError(errors, "evaluation-tags", "evaluation-tags", "non-null object", tagRegistry);
+    return new Set();
+  }
+  if (tagRegistry.manifestVersion !== "0.1") addError(errors, "evaluation-tags", "evaluation-tags.manifestVersion", "0.1", tagRegistry.manifestVersion);
+  if (!nonEmptyString(tagRegistry.description)) addError(errors, "evaluation-tags", "evaluation-tags.description", "non-empty string", tagRegistry.description);
+  if (!Array.isArray(tagRegistry.tags)) {
+    addError(errors, "evaluation-tags", "evaluation-tags.tags", "array", tagRegistry.tags);
+    return new Set();
+  }
+  const tags = new Set();
+  tagRegistry.tags.forEach((tagEntry, index) => {
+    const field = `evaluation-tags.tags[${index}]`;
+    if (!isObject(tagEntry)) {
+      addError(errors, "evaluation-tags", field, "non-null object", tagEntry);
+      return;
+    }
+    if (!nonEmptyString(tagEntry.tag)) addError(errors, "evaluation-tags", `${field}.tag`, "non-empty string", tagEntry.tag);
+    else if (tags.has(tagEntry.tag)) addError(errors, tagEntry.tag, `${field}.tag`, "unique tag ID", tagEntry.tag);
+    else tags.add(tagEntry.tag);
+    if (!nonEmptyString(tagEntry.description)) addError(errors, tagEntry.tag || "evaluation-tags", `${field}.description`, "non-empty string", tagEntry.description);
+  });
+  return tags;
+}
+
 function validateProtectedFamilies(familyRegistry, corpusById, errors) {
-  const families = Array.isArray(familyRegistry.families) ? familyRegistry.families : [];
+  if (!isObject(familyRegistry)) {
+    addError(errors, "protected-families", "protected-families", "non-null object", familyRegistry);
+    return new Map();
+  }
+  if (familyRegistry.manifestVersion !== "0.1") addError(errors, "protected-families", "protected-families.manifestVersion", "0.1", familyRegistry.manifestVersion);
+  if (!nonEmptyString(familyRegistry.description)) addError(errors, "protected-families", "protected-families.description", "non-empty string", familyRegistry.description);
+  if (!Array.isArray(familyRegistry.families)) {
+    addError(errors, "protected-families", "protected-families.families", "array", familyRegistry.families);
+    return new Map();
+  }
+  const families = familyRegistry.families;
   const familyById = new Map();
   families.forEach((family, index) => {
-    if (!family || typeof family.familyId !== "string") {
-      addError(errors, "unknown", `families[${index}].familyId`, "non-empty family ID", family && family.familyId);
+    const field = `protected-families.families[${index}]`;
+    if (!isObject(family)) {
+      addError(errors, "protected-families", field, "non-null object", family);
+      return;
+    }
+    if (!nonEmptyString(family.familyId)) {
+      addError(errors, "protected-families", `${field}.familyId`, "non-empty family ID", family.familyId);
       return;
     }
     if (familyById.has(family.familyId)) {
       addError(errors, family.familyId, "familyId", "unique family ID", family.familyId);
     }
     familyById.set(family.familyId, family);
-    const memberIds = Array.isArray(family.memberRecordIds) ? family.memberRecordIds : [];
+    if (!nonEmptyString(family.name)) addError(errors, family.familyId, `${field}.name`, "non-empty string", family.name);
+    if (!nonEmptyString(family.description)) addError(errors, family.familyId, `${field}.description`, "non-empty string", family.description);
+    if (!nonEmptyString(family.protectionReason)) addError(errors, family.familyId, `${field}.protectionReason`, "non-empty string", family.protectionReason);
+    if (!Array.isArray(family.memberRecordIds)) {
+      addError(errors, family.familyId, `${field}.memberRecordIds`, "array", family.memberRecordIds);
+      return;
+    }
+    const memberIds = family.memberRecordIds;
     const seen = new Set();
     memberIds.forEach((recordId, memberIndex) => {
       if (seen.has(recordId)) addError(errors, family.familyId, `memberRecordIds[${memberIndex}]`, "no duplicate member IDs", recordId);
       seen.add(recordId);
       if (!corpusById.has(recordId)) addError(errors, family.familyId, `memberRecordIds[${memberIndex}]`, "existing corpus record ID", recordId);
     });
+    if (seen.size < 2) addError(errors, family.familyId, `${field}.memberRecordIds`, "at least 2 unique member record IDs", memberIds);
     if (!VALID_TIERS.has(family.contaminationTier)) {
       addError(errors, family.familyId, "contaminationTier", "LOW, MEDIUM, HIGH, or VERY_HIGH", family.contaminationTier);
     }
-    if (!Array.isArray(family.evaluationType) || family.evaluationType.length === 0) {
+    if (!Array.isArray(family.evaluationType) || family.evaluationType.length === 0 || family.evaluationType.some((type) => !nonEmptyString(type))) {
       addError(errors, family.familyId, "evaluationType", "non-empty array", family.evaluationType);
     }
-    if (!Array.isArray(family.restrictions) || family.restrictions.length === 0) {
+    if (!Array.isArray(family.restrictions) || family.restrictions.length === 0 || family.restrictions.some((restriction) => !nonEmptyString(restriction))) {
       addError(errors, family.familyId, "restrictions", "non-empty array", family.restrictions);
     }
   });
@@ -140,6 +206,7 @@ function validateManifestData(manifest, familyRegistry, tagRegistry, corpusEntri
     if (multiCount !== 12) addError(errors, "manifest", "corpus.multi_turn", 12, multiCount);
   }
 
+  validateManifestRoot(manifest, errors);
   if (!manifest || manifest.manifestVersion !== "0.1") addError(errors, "manifest", "manifestVersion", "0.1", manifest && manifest.manifestVersion);
   if (!manifest || manifest.splitVersion !== "0.1") addError(errors, "manifest", "splitVersion", "0.1", manifest && manifest.splitVersion);
   if (!manifest || manifest.corpusVersion !== "v0.1-draft") addError(errors, "manifest", "corpusVersion", "v0.1-draft", manifest && manifest.corpusVersion);
@@ -152,8 +219,8 @@ function validateManifestData(manifest, familyRegistry, tagRegistry, corpusEntri
   if (!manifest || JSON.stringify(manifest.exposurePolicy) !== JSON.stringify(expectedExposurePolicy)) addError(errors, "manifest", "exposurePolicy", expectedExposurePolicy, manifest && manifest.exposurePolicy);
 
   const familyById = validateProtectedFamilies(familyRegistry, corpusById, errors);
-  const allowedTags = new Set((tagRegistry.tags || []).map((entry) => entry && entry.tag));
-  const assignments = Array.isArray(manifest.records) ? manifest.records : [];
+  const allowedTags = validateTagRegistry(tagRegistry, errors);
+  const assignments = manifest && Array.isArray(manifest.records) ? manifest.records : [];
   const assignmentById = new Map();
   const roleCounts = { TRAINING: 0, DEVELOPMENT: 0, HELD_OUT: 0 };
   const typeRoleCounts = {};
@@ -161,6 +228,10 @@ function validateManifestData(manifest, familyRegistry, tagRegistry, corpusEntri
   const levelRoleCounts = {};
 
   assignments.forEach((assignment, index) => {
+    if (!isObject(assignment)) {
+      addError(errors, "manifest", `exposure-manifest.records[${index}]`, "non-null object", assignment);
+      return;
+    }
     const id = assignment && assignment.recordId;
     if (assignmentById.has(id)) addError(errors, id, "records", "one manifest assignment", "duplicate assignment");
     assignmentById.set(id, assignment);
@@ -256,16 +327,18 @@ function runSelfTest() {
   const families = readJson(path.join(MANIFEST_DIR, "protected-families.json"));
   const tags = readJson(path.join(MANIFEST_DIR, "evaluation-tags.json"));
   const corpus = loadCorpus();
-  const slice = corpus.slice(0, 1);
+  const slice = corpus.slice(0, 2);
   const sliceManifest = clone(manifest);
-  sliceManifest.records = [clone(manifest.records[0])];
-  sliceManifest.records[0].protectedSiblingIds = [];
+  sliceManifest.records = [clone(manifest.records[0]), clone(manifest.records[1])];
+  sliceManifest.records.forEach((record) => { record.protectedSiblingIds = []; });
   const sliceFamilies = clone(families);
   sliceFamilies.families = sliceFamilies.families.filter((family) => family.familyId === manifest.records[0].conceptFamilyId);
-  sliceFamilies.families[0].memberRecordIds = [manifest.records[0].recordId];
+  sliceFamilies.families[0].memberRecordIds = sliceManifest.records.map((record) => record.recordId);
   const cases = [
     ["valid minimal manifest slice", () => validateManifestData(sliceManifest, sliceFamilies, tags, slice, { requireComplete: false, checkExpected: false }).errors.length === 0],
     ["duplicate record assignment", () => { const m=clone(manifest); m.records.push(clone(m.records[0])); return validateManifestData(m,families,tags,corpus).errors.some(e=>e.field==='records'); }],
+    ["malformed exposure assignment", () => { const m=clone(manifest); m.records[0]=null; return validateManifestData(m,families,tags,corpus).errors.some(e=>e.field==='exposure-manifest.records[0]'); }],
+    ["invalid exposure records container", () => { const m=clone(manifest); m.records={}; return validateManifestData(m,families,tags,corpus).errors.some(e=>e.field==='exposure-manifest.records'); }],
     ["missing corpus record", () => { const m=clone(manifest); m.records=m.records.slice(1); return validateManifestData(m,families,tags,corpus).errors.some(e=>e.expected==='exactly one manifest assignment'); }],
     ["unknown record ID", () => { const m=clone(manifest); m.records[0].recordId='unknown-record'; return validateManifestData(m,families,tags,corpus).errors.some(e=>e.field==='recordId'); }],
     ["wrong recordType", () => { const m=clone(manifest); m.records[0].recordType='multi_turn'; return validateManifestData(m,families,tags,corpus).errors.some(e=>e.field==='recordType'); }],
@@ -276,7 +349,17 @@ function runSelfTest() {
     ["protected sibling does not exist", () => { const m=clone(manifest); m.records[0].protectedSiblingIds.push('unknown-record'); return validateManifestData(m,families,tags,corpus).errors.some(e=>e.field.includes('protectedSiblingIds')); }],
     ["protected sibling references itself", () => { const m=clone(manifest); m.records[0].protectedSiblingIds.push(m.records[0].recordId); return validateManifestData(m,families,tags,corpus).errors.some(e=>e.expected==='must not reference itself'); }],
     ["duplicate protected sibling", () => { const m=clone(manifest); const sibling=m.records[0].protectedSiblingIds[0]; m.records[0].protectedSiblingIds.push(sibling); return validateManifestData(m,families,tags,corpus).errors.some(e=>e.expected==='no duplicate sibling IDs'); }],
+    ["valid asymmetric protected sibling", () => { const m=clone(manifest); m.records[1].protectedSiblingIds=m.records[1].protectedSiblingIds.filter(id=>id!==m.records[0].recordId); return validateManifestData(m,families,tags,corpus).errors.length===0; }],
+    ["duplicate protected family ID", () => { const f=clone(families); f.families.push(clone(f.families[0])); return validateManifestData(manifest,f,tags,corpus).errors.some(e=>e.field==='familyId'); }],
+    ["duplicate protected family member", () => { const f=clone(families); f.families[0].memberRecordIds.push(f.families[0].memberRecordIds[0]); return validateManifestData(manifest,f,tags,corpus).errors.some(e=>e.expected==='no duplicate member IDs'); }],
     ["protected family contains nonexistent ID", () => { const f=clone(families); f.families[0].memberRecordIds.push('unknown-record'); return validateManifestData(manifest,f,tags,corpus).errors.some(e=>e.expected==='existing corpus record ID'); }],
+    ["protected family requires two members", () => { const f=clone(families); f.families[0].memberRecordIds=[f.families[0].memberRecordIds[0]]; return validateManifestData(manifest,f,tags,corpus).errors.some(e=>e.expected==='at least 2 unique member record IDs'); }],
+    ["protected family requires description", () => { const f=clone(families); f.families[0].description=''; return validateManifestData(manifest,f,tags,corpus).errors.some(e=>e.field.endsWith('.description')); }],
+    ["malformed protected family root", () => validateManifestData(manifest,{...families,families:{}},tags,corpus).errors.some(e=>e.field==='protected-families.families')],
+    ["duplicate evaluation tag", () => { const t=clone(tags); t.tags.push(clone(t.tags[0])); return validateManifestData(manifest,families,t,corpus).errors.some(e=>e.expected==='unique tag ID'); }],
+    ["malformed evaluation tag", () => { const t=clone(tags); t.tags[0]=null; return validateManifestData(manifest,families,t,corpus).errors.some(e=>e.field==='evaluation-tags.tags[0]'); }],
+    ["evaluation tag requires description", () => { const t=clone(tags); t.tags[0].description=''; return validateManifestData(manifest,families,t,corpus).errors.some(e=>e.field.endsWith('.description')); }],
+    ["malformed evaluation tag root", () => validateManifestData(manifest,families,{...tags,tags:{}},corpus).errors.some(e=>e.field==='evaluation-tags.tags')],
     ["incorrect expected manifest total", () => { const m=clone(manifest); m.records.pop(); return validateManifestData(m,families,tags,corpus).errors.some(e=>e.field==='records.length'); }],
   ];
   let failed = false;
