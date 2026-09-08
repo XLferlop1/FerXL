@@ -230,8 +230,10 @@ function validateBehavioralContext(context, file, record, errors) {
 
 function validateConversation(record, file, errors) {
   const annotatedTurns = new Map();
+  const turnNumbers = new Set();
   if (Array.isArray(record.turns)) {
     record.turns.forEach((turn, index) => {
+      if (isObject(turn) && Number.isInteger(turn.turnNumber)) turnNumbers.add(turn.turnNumber);
       if (isObject(turn) && Object.prototype.hasOwnProperty.call(turn, "safetyAnnotation")) {
         validateSafetyAnnotation(
           turn.safetyAnnotation,
@@ -273,6 +275,7 @@ function validateConversation(record, file, errors) {
   }
 
   if (Array.isArray(record.safetyTransitions)) {
+    let priorTransition = null;
     record.safetyTransitions.forEach((transition, index) => {
       if (!isObject(transition)) {
         addError(errors, file, record, `safetyTransitions[${index}]`, "must be an object");
@@ -280,32 +283,34 @@ function validateConversation(record, file, errors) {
       }
       validateLevel(transition.fromLevel, file, record, `safetyTransitions[${index}].fromLevel`, errors);
       validateLevel(transition.toLevel, file, record, `safetyTransitions[${index}].toLevel`, errors);
-      if (!annotatedTurns.has(transition.atTurn)) {
-        addError(errors, file, record, `safetyTransitions[${index}].atTurn`, "must reference a turn with a safety annotation");
+      if (!turnNumbers.has(transition.atTurn)) {
+        addError(errors, file, record, `safetyTransitions[${index}].atTurn`, "must reference an existing turn");
         return;
       }
-      const annotatedTurn = annotatedTurns.get(transition.atTurn);
-      if (annotatedTurn.level !== transition.toLevel) {
-        addError(errors, file, record, `safetyTransitions[${index}].toLevel`, "must match the annotated level at atTurn");
+      if (priorTransition && transition.atTurn <= priorTransition.atTurn) {
+        addError(errors, file, record, `safetyTransitions[${index}].atTurn`, "must be later than the preceding cumulative transition");
       }
-      const priorTurns = [...annotatedTurns.keys()].filter((turnNumber) => turnNumber < transition.atTurn);
-      const priorLevel = priorTurns.length > 0
-        ? annotatedTurns.get(priorTurns.sort((a, b) => b - a)[0]).level
+      const priorLevel = priorTransition
+        ? priorTransition.toLevel
         : record.conversationMetadata && record.conversationMetadata.startingSafetyLevel;
       if (Number.isInteger(priorLevel) && priorLevel !== transition.fromLevel) {
-        addError(errors, file, record, `safetyTransitions[${index}].fromLevel`, "must match the prior established conversation level");
+        addError(errors, file, record, `safetyTransitions[${index}].fromLevel`, "must match the prior cumulative safety level");
       }
+      priorTransition = transition;
     });
+
+    const finalTransition = record.safetyTransitions[record.safetyTransitions.length - 1];
+    if (finalTransition && isObject(record.cumulativeState) && Number.isInteger(record.cumulativeState.currentSafetyLevel) && finalTransition.toLevel !== record.cumulativeState.currentSafetyLevel) {
+      addError(errors, file, record, "safetyTransitions", "final cumulative transition level must match cumulativeState.currentSafetyLevel");
+    }
   }
 
-  const finalTurnNumber = [...annotatedTurns.keys()].sort((a, b) => b - a)[0];
-  const finalAnnotation = finalTurnNumber === undefined ? null : annotatedTurns.get(finalTurnNumber);
-  if (finalAnnotation && isObject(record.cumulativeState)) {
-    if (record.cumulativeState.currentSafetyLevel !== finalAnnotation.level) {
-      addError(errors, file, record, "cumulativeState.currentSafetyLevel", "must match the final annotated conversation level");
+  if (isObject(record.safetyAnnotation) && isObject(record.cumulativeState)) {
+    if (record.cumulativeState.currentSafetyLevel !== record.safetyAnnotation.level) {
+      addError(errors, file, record, "cumulativeState.currentSafetyLevel", "must match the top-level final safety annotation level");
     }
-    if (record.cumulativeState.currentSafetyCategory !== finalAnnotation.category) {
-      addError(errors, file, record, "cumulativeState.currentSafetyCategory", "must match the final annotated conversation category");
+    if (record.cumulativeState.currentSafetyCategory !== record.safetyAnnotation.category) {
+      addError(errors, file, record, "cumulativeState.currentSafetyCategory", "must match the top-level final safety annotation category");
     }
   }
 }
@@ -431,9 +436,21 @@ function runSelfTest() {
       shouldPass: true,
     },
     {
-      name: "conversation transition continuity",
+      name: "conversation zero cumulative transitions",
       record: {
         ...baseRecord("none", 0),
+        id: "self-test-zero-cumulative-transitions",
+        conversationMetadata: { startingSafetyLevel: 0 },
+        turns: [{ turnNumber: 1, speaker: "user", text: "Stable", safetyAnnotation: { category: "none", level: 0, annotationCertainty: "clear" } }],
+        cumulativeState: { currentSafetyCategory: "none", currentSafetyLevel: 0 },
+        safetyTransitions: [],
+      },
+      shouldPass: true,
+    },
+    {
+      name: "conversation cumulative and final agreement",
+      record: {
+        ...baseRecord("abuse_or_coercion", 3),
         id: "self-test-transition",
         conversationMetadata: { startingSafetyLevel: 0 },
         turns: [
@@ -446,19 +463,67 @@ function runSelfTest() {
       shouldPass: true,
     },
     {
-      name: "conversation transition wrong prior level",
+      name: "conversation local final turn differs from cumulative final state",
       record: {
-        ...baseRecord("none", 0),
-        id: "self-test-invalid-transition",
+        ...baseRecord("self_harm_or_suicide", 4),
+        id: "self-test-local-final-differs",
+        conversationMetadata: { startingSafetyLevel: 0 },
+        turns: [
+          { turnNumber: 1, speaker: "user", text: "Direct disclosure", safetyAnnotation: { category: "self_harm_or_suicide", level: 4, annotationCertainty: "clear" } },
+          { turnNumber: 2, speaker: "user", text: "I was joking.", safetyAnnotation: { category: "none", level: 0, annotationCertainty: "uncertain" } },
+        ],
+        cumulativeState: { currentSafetyCategory: "self_harm_or_suicide", currentSafetyLevel: 4 },
+        safetyTransitions: [{ fromLevel: 0, toLevel: 4, atTurn: 1, reason: "Direct disclosure", evidence: ["Direct disclosure"] }],
+      },
+      shouldPass: true,
+    },
+    {
+      name: "conversation incomplete cumulative transition history",
+      record: {
+        ...baseRecord("self_harm_or_suicide", 4),
+        id: "self-test-incomplete-cumulative-transitions",
         conversationMetadata: { startingSafetyLevel: 0 },
         turns: [
           { turnNumber: 1, speaker: "user", text: "First", safetyAnnotation: { category: "none", level: 0, annotationCertainty: "clear" } },
           { turnNumber: 2, speaker: "user", text: "Second", safetyAnnotation: { category: "abuse_or_coercion", level: 3, annotationCertainty: "clear" } },
+          { turnNumber: 3, speaker: "user", text: "Third", safetyAnnotation: { category: "self_harm_or_suicide", level: 4, annotationCertainty: "clear" } },
         ],
-        cumulativeState: { currentSafetyCategory: "abuse_or_coercion", currentSafetyLevel: 3 },
-        safetyTransitions: [{ fromLevel: 2, toLevel: 3, atTurn: 2, reason: "New evidence", evidence: ["Second"] }],
+        cumulativeState: { currentSafetyCategory: "self_harm_or_suicide", currentSafetyLevel: 4 },
+        safetyTransitions: [{ fromLevel: 0, toLevel: 3, atTurn: 2, reason: "Second", evidence: ["Second"] }],
       },
       shouldPass: false,
+      expectedError: "final cumulative transition level",
+    },
+    {
+      name: "conversation cumulative and top-level mismatch",
+      record: {
+        ...baseRecord("abuse_or_coercion", 3),
+        id: "self-test-cumulative-final-mismatch",
+        turns: [{ turnNumber: 1, speaker: "user", text: "First", safetyAnnotation: { category: "none", level: 0, annotationCertainty: "clear" } }],
+        cumulativeState: { currentSafetyCategory: "none", currentSafetyLevel: 0 },
+        safetyTransitions: [],
+      },
+      shouldPass: false,
+      expectedError: "cumulativeState.currentSafetyLevel",
+    },
+    {
+      name: "conversation invalid cumulative transition chain",
+      record: {
+        ...baseRecord("abuse_or_coercion", 3),
+        id: "self-test-invalid-cumulative-transition",
+        conversationMetadata: { startingSafetyLevel: 0 },
+        turns: [
+          { turnNumber: 1, speaker: "user", text: "First", safetyAnnotation: { category: "emotional_distress", level: 1, annotationCertainty: "clear" } },
+          { turnNumber: 2, speaker: "user", text: "Second", safetyAnnotation: { category: "abuse_or_coercion", level: 3, annotationCertainty: "clear" } },
+        ],
+        cumulativeState: { currentSafetyCategory: "abuse_or_coercion", currentSafetyLevel: 3 },
+        safetyTransitions: [
+          { fromLevel: 0, toLevel: 1, atTurn: 1, reason: "First", evidence: ["First"] },
+          { fromLevel: 0, toLevel: 3, atTurn: 2, reason: "Second", evidence: ["Second"] },
+        ],
+      },
+      shouldPass: false,
+      expectedError: "prior cumulative safety level",
     },
     {
       name: "conversation transition nonexistent turn",

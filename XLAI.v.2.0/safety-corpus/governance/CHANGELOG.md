@@ -2,6 +2,16 @@
 
 This changelog records versioned changes to the Safety Corpus foundation. It does not record runtime enforcement changes.
 
+## v0.1.7 - Phase 4C-E conversation consistency
+
+- Clarified the distinct responsibilities of local turn annotations, retained cumulative state, final conversation adjudication, and final-state-derived expected behavior.
+- Clarified that retraction, joking, minimization, qualification, and reference may remain safety-relevant local evidence without mechanically copying historical annotation fields.
+- Defined `safetyTransitions` as cumulative conversation safety-state changes rather than a transcript of local-turn labels.
+- Defined `safetyTransitions` as exhaustive for cumulative safety-level changes only, without extending exhaustiveness to categories, urgency, signals, certainty, rationale, or local-turn annotations.
+- Corrected development-only validator invariants to compare cumulative state with the top-level final annotation rather than the last annotated turn.
+- Added validator self-tests for a differing final local turn, cumulative/final mismatch, and cumulative transition-chain failure.
+- Made no corpus, manifest, ontology, schema-structure, runtime, dependency, or classifier changes.
+
 ## v0.1.6 - Phase 4C-D confidence contract clarification
 
 - Clarified `annotationCertainty` as an annotation-resolution state rather than probability or model confidence.
