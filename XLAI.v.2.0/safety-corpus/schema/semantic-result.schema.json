@@ -1,38 +1,105 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://xlai.local/safety-corpus/schema/semantic-result.schema.json",
-  "title": "XLAI Semantic Safety Result",
-  "description": "An internal-only future semantic safety classifier result. It contains classification evidence for shadow-mode comparison and evaluation, not generated text or enforcement policy. The numeric confidence field is an internal bounded model score only; it is not inherently a probability, calibrated correctness estimate, or risk probability until separate calibration work is explicitly approved.",
+  "title": "XLAI Turn Semantic Safety Result",
+  "description": "A versioned internal-only result from the future Turn Semantic Safety Classifier. It is a shadow-mode semantic observation for comparison and evaluation, not generated text, cumulative conversation state, or enforcement policy. Numeric confidence is optional experimental metadata only and is not inherently a probability, calibrated correctness estimate, risk probability, or policy input.",
   "type": "object",
   "additionalProperties": false,
-  "required": ["category", "level", "confidence", "semanticSignals", "reasoningSummary"],
+  "required": ["contractVersion", "classifierVersion", "ontologyVersion", "policyReferenceVersion", "category", "level", "semanticSignals", "resolution", "evidence", "inferenceStatus"],
   "properties": {
+    "contractVersion": { "const": "0.2.0" },
+    "classifierVersion": { "type": "string", "minLength": 1, "description": "Classifier implementation or experiment version." },
+    "ontologyVersion": { "type": "string", "minLength": 1, "description": "Semantic signal ontology version used for this result." },
+    "policyReferenceVersion": { "type": "string", "minLength": 1, "description": "Authoritative Safety Knowledge Base taxonomy reference; it does not grant enforcement authority." },
     "category": {
-      "type": "string",
-      "enum": ["none", "emotional_distress", "conflict_crisis", "unsafe_relationship_dynamics", "abuse_or_coercion", "stalking_or_tracking", "threats_or_intimidation", "coercive_control_or_isolation", "home_danger", "self_harm_or_suicide", "violence_risk", "immediate_danger"],
-      "description": "Existing Safety Knowledge Base category key only."
+      "type": ["string", "null"],
+      "enum": ["none", "emotional_distress", "conflict_crisis", "unsafe_relationship_dynamics", "abuse_or_coercion", "stalking_or_tracking", "threats_or_intimidation", "coercive_control_or_isolation", "home_danger", "self_harm_or_suicide", "violence_risk", "immediate_danger", null],
+      "description": "One existing Safety Knowledge Base category key, or null when inference abstains or fails. It is not the authoritative runtime decision category."
     },
     "level": {
-      "type": "integer",
+      "type": ["integer", "null"],
       "minimum": 0,
       "maximum": 5,
-      "description": "Existing XLAI safety level from 0 through 5."
+      "enum": [0, 1, 2, 3, 4, 5, null],
+      "description": "Semantic prediction using the existing XLAI safety-level range, or null when inference abstains or fails. It is not the authoritative runtime decision level."
     },
     "confidence": {
       "type": "number",
       "minimum": 0,
       "maximum": 1,
-      "description": "Internal bounded model score. This does not imply a calibrated probability, user-facing confidence, or risk probability. A value bounded from 0 to 1 does not imply probability until separate calibration work is approved."
+      "description": "Optional experimental bounded model score. This does not imply a calibrated probability, user-facing confidence, risk probability, threshold, or policy input."
     },
     "semanticSignals": {
       "type": "array",
       "items": { "type": "string" },
-      "description": "Concise semantic evidence labels; these do not replace deterministic matched signals."
+      "description": "Governed semantic ontology signal IDs only; these do not replace deterministic matched signals or policy."
     },
-    "reasoningSummary": {
-      "type": "string",
-      "minLength": 1,
-      "description": "Concise non-sensitive classifier explanation for debugging and evaluation, not hidden chain-of-thought."
+    "resolution": { "type": ["string", "null"], "enum": ["clear", "uncertain", "ambiguous", "insufficient_evidence", null], "description": "Model interpretation resolution, distinct from human corpus annotationCertainty. Null is used only when inference does not produce a semantic result." },
+    "evidence": { "type": "array", "items": { "$ref": "#/$defs/evidenceReference" }, "description": "Structured references into transiently supplied current or bounded context turns. Persistent results store offsets, not raw excerpts." },
+    "inferenceStatus": { "type": "string", "enum": ["success", "abstained", "invalid_output", "timeout", "provider_error"], "description": "Operational inference outcome, distinct from semantic resolution and deterministic runtime behavior." },
+    "modelProviderVersion": { "type": "string", "minLength": 1 },
+    "promptVersion": { "type": "string", "minLength": 1 },
+    "latencyMs": { "type": "integer", "minimum": 0 },
+    "contextFlags": { "type": "array", "items": { "type": "string" }, "description": "Optional bounded-context indicators; not cumulative state." },
+    "errorCode": { "type": "string", "minLength": 1, "description": "Optional non-sensitive operational error code." }
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "inferenceStatus": { "const": "success" } } },
+      "then": {
+        "properties": {
+          "category": { "type": "string" },
+          "level": { "type": "integer" },
+          "resolution": { "enum": ["clear", "uncertain", "ambiguous"] }
+        },
+        "required": ["category", "level", "resolution"],
+        "not": { "required": ["errorCode"] }
+      }
+    },
+    {
+      "if": { "properties": { "inferenceStatus": { "const": "abstained" } } },
+      "then": {
+        "properties": {
+          "category": { "const": null },
+          "level": { "const": null },
+          "semanticSignals": { "maxItems": 0 },
+          "resolution": { "const": "insufficient_evidence" },
+          "evidence": { "maxItems": 0 }
+        },
+        "required": ["category", "level", "semanticSignals", "resolution", "evidence"],
+        "not": { "required": ["errorCode"] }
+      }
+    },
+    {
+      "if": { "properties": { "inferenceStatus": { "enum": ["invalid_output", "timeout", "provider_error"] } } },
+      "then": {
+        "properties": {
+          "category": { "const": null },
+          "level": { "const": null },
+          "semanticSignals": { "maxItems": 0 },
+          "resolution": { "const": null },
+          "evidence": { "maxItems": 0 }
+        },
+        "required": ["category", "level", "semanticSignals", "resolution", "evidence"]
+      }
+    }
+  ],
+  "$defs": {
+    "evidenceReference": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["source", "turnOffset", "start", "end", "signal"],
+      "properties": {
+        "source": { "type": "string", "enum": ["current_turn", "context_turn"] },
+        "turnOffset": { "type": "integer", "enum": [0, -1, -2] },
+        "start": { "type": "integer", "minimum": 0 },
+        "end": { "type": "integer", "minimum": 1 },
+        "signal": { "type": "string", "minLength": 1 }
+      },
+      "allOf": [
+        { "if": { "properties": { "source": { "const": "current_turn" } } }, "then": { "properties": { "turnOffset": { "const": 0 } } } },
+        { "if": { "properties": { "source": { "const": "context_turn" } } }, "then": { "properties": { "turnOffset": { "enum": [-1, -2] } } } }
+      ]
     }
   }
 }

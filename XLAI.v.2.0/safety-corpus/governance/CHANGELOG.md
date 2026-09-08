@@ -2,6 +2,25 @@
 
 This changelog records versioned changes to the Safety Corpus foundation. It does not record runtime enforcement changes.
 
+## v0.2.1 - Phase 5A-4 semantic contract correction pass
+
+- Removed hardcoded category-to-level policy mapping branches from the SemanticResult schema while preserving canonical category vocabulary, level range, nullability, and success/abstained/failure state structure.
+- Clarified the schema responsibility boundary: structural validation remains in JSON Schema, while future policy-aware validation must load the canonical `engine/safetyKnowledgeBase.js` rather than duplicate its mapping.
+- Documented the first semantic-classifier experiment as zero-shot, development-only, bounded to current turn plus at most two prior turns, without HELD_OUT access or calibration/generalization claims.
+- Added the required held-out gate before any formal HELD_OUT evaluation: immutable exposure/evaluation history, approved protocol, reporting rules, and explicit human approval.
+- Clarified `errorCode` semantics for the initial `SemanticResult` contract: it is operational metadata only for failure states and is absent for success and abstention.
+- Updated architecture wording to make the current state unmistakably messaging-only, shadow-only, observational-only, separate from deterministic inference, and not active for semantic route authority, threshold authority, or enforcement.
+- Replaced non-authoritative future examples using `policyVersion: "vNext-1"` and `semanticTopConfidence` with clearly marked FUTURE / NOT ACTIVE IN INITIAL SHADOW MODE placeholders.
+- Made no corpus-data, manifest, ontology, dependency, runtime-engine, route, or classifier implementation changes.
+
+## v0.2.0 - Phase 5A-2 turn semantic classifier contract
+
+- Defined SemanticResult contract `0.2.0` for a future shadow-only Turn Semantic Safety Classifier with bounded immediate context, structured evidence references, resolution, inference status, and independent version metadata.
+- Separated model resolution from human corpus annotation certainty and deferred numeric confidence from the first experiment as a required or decision-making field.
+- Documented independent semantic inference, privacy-preserving default logging, operational failure isolation, held-out protection, and the boundary with future Conversation Intelligence.
+- Updated future architecture documentation to remove initial-shadow-mode decision authority, confidence-threshold, urgency-selection, and route-enforcement assumptions.
+- Made no corpus, manifest, ontology, runtime, dependency, classifier implementation, or live enforcement changes.
+
 ## v0.1.8 - Phase 4C-F manifest validator structural hardening
 
 - Hardened exposure-manifest, protected-family, and evaluation-tag root and entry validation so malformed structures fail through deterministic diagnostics.

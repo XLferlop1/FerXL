@@ -2,7 +2,7 @@
 
 ## 1. Architecture overview
 
-This document defines the next safety architecture phase for XLAI by introducing four new modules that sit between route input parsing and downstream coaching logic:
+This document describes the future safety architecture. The current initial mode is explicitly messaging-only, shadow-only, observational-only, and independent from deterministic inference. It does not introduce a runtime module, route integration, semantic input to `SafetyDecisionEngine`, or enforcement change.
 
 - contextRouter.js
 - semanticSafetyClassifier.js
@@ -13,19 +13,21 @@ Target outcome:
 
 - Keep the current deterministic Safety Engine as the first gate.
 - Add a semantic safety layer that captures intent and context not covered by exact pattern matches.
-- Standardize route-level safety decisions through a single decision policy.
-- Preserve current user-facing blocking behavior for high-risk situations while improving classification precision.
+- Standardize route-level safety decisions through a single decision policy only in a future, separately approved design.
+- Preserve current user-facing blocking behavior for high-risk situations while improving classification precision in future controlled stages.
 
 Proposed high-level flow:
 
 1. Route receives request payload.
-2. contextRouter.js classifies request context (messaging, coach, analysis, journal).
+2. contextRouter.js classifies request context (messaging, coach, analysis, journal) only in future design work.
 3. Deterministic Safety Engine runs first (existing behavior).
-4. semanticSafetyClassifier.js runs for unresolved or borderline risk signals.
-5. safetyDecisionEngine.js merges deterministic + semantic evidence.
+4. A future semantic classifier may run as an isolated shadow observer in messaging only.
+5. A future comparison layer may compare deterministic and semantic observations only after separate approval.
 6. Route returns either:
    - safety-blocked deterministic response shape for stop cases, or
    - normal route behavior for allow cases.
+
+Current initial mode is not a semantic policy merge, not an enforcement path, and not a semantic classifier authority for routing, threshold setting, or coach/journal behavior.
 
 ## 2. Current safety baseline
 
@@ -92,35 +94,32 @@ Outputs:
 
 Purpose:
 
-- Perform semantic risk interpretation after deterministic checks.
+- Perform non-authoritative, turn-local semantic interpretation in initial shadow mode only.
 
 Responsibilities:
 
-- Classify safety categories using semantic features and phrase variants.
-- Return category confidences and urgency estimate.
-- Attach rationale snippets safe for logs and debugging.
-- Avoid replacing deterministic hard-stop matches.
+- Interpret the current user-authored message with, at most, two directly preceding turns for bounded context.
+- Return governed semantic signals, one existing category, aligned semantic level, resolution, evidence references, and version metadata.
+- Remain independent of deterministic output during inference; comparison occurs after both results exist.
+- Never select urgency, response policy, user-facing action, cumulative state, or enforcement.
+- Remain outside any SafetyDecisionEngine merge or route authority in the initial phase.
 
 Inputs:
 
-- context object
-- deterministic result
-- taxonomy from safetyKnowledgeBase.js
+- current message, source role, channel, turn identity, and optional bounded prior turns
+- canonical taxonomy reference for output validation only
 
 Outputs:
 
-- semantic result with:
-  - categories
-  - confidenceByCategory
-  - urgency
-  - semanticSignals
-  - rationale
+- `SemanticResult` contract `0.2.0` as defined by `safety-corpus/schema/semantic-result.schema.json`
+
+This module does not grant semantic route authority, semantic threshold authority, or semantic enforcement authority.
 
 ### safetyKnowledgeBase.js
 
 Purpose:
 
-- Central source of truth for taxonomy, thresholds, and response policy metadata.
+- Central source of truth for taxonomy, urgency defaults, and response policy metadata.
 
 Responsibilities:
 
@@ -136,44 +135,40 @@ Inputs:
 Outputs:
 
 - taxonomy definitions
-- confidence thresholds
-- urgency thresholds
+- urgency defaults
 - policy defaults
 
 Phase 2 implementation status:
 
 - Implemented as `engine/safetyKnowledgeBase.js`
 - Current implementation centralizes category taxonomy, level mapping, urgency defaults, messaging policy, coach policy, near-miss guidance, and module validation
-- Not wired into route enforcement yet
-- Does not change current Safety Engine behavior
+- Does not replace or change current Safety Engine enforcement
 
 ### safetyDecisionEngine.js
 
 Purpose:
 
-- Produce final safety outcome for each request.
+- Produce final safety outcome for each request under the current deterministic-only runtime.
 
 Responsibilities:
 
-- Merge deterministic and semantic outputs.
-- Apply precedence rules (deterministic hard-stop always wins).
-- Resolve final level, shouldStopNormalCoaching, and response policy.
-- Emit standardized decision object consumed by routes.
+- Keep deterministic precedence as the active execution path.
+- Maintain a decision policy boundary that excludes semantic output from live enforcement in initial shadow mode.
+- Resolve final level, shouldStopNormalCoaching, and response policy only from deterministic runtime behavior.
+- Emit standardized decision objects consumed by current routes without semantic authority.
 
 Inputs:
 
 - context object
 - deterministic safety result
-- semantic safety result
 - policy config from safetyKnowledgeBase.js
 
 Outputs:
 
-- final decision with:
+- final deterministic decision with:
   - level
   - label
   - category
-  - confidence
   - urgency
   - shouldStopNormalCoaching
   - reason
@@ -191,56 +186,13 @@ Phase 3 implementation status:
 - Semantic input remains optional and currently passed as `null`
 - External API response shapes remain unchanged
 
+Future semantic merge, threshold selection, calibration, or policy enforcement is not active in initial shadow mode and requires separate approval.
+
 ## 4. Route integration plan
 
-### POST /api/send
+### Future shadow integration
 
-Plan:
-
-- Build context via contextRouter.js using outgoing message text.
-- Run deterministic Safety Engine first.
-- Run semantic classifier when deterministic does not already hard-stop.
-- Use safetyDecisionEngine.js to resolve final outcome.
-- If stop outcome, return existing blocked response contract and bypass persistence.
-- If allow outcome, continue existing send flow unchanged.
-
-### POST /api/rephrase
-
-Plan:
-
-- Route text through contextRouter.js with contextType messaging_rephrase.
-- Run deterministic then semantic then decision merge.
-- Stop outcomes return existing blocked contract with suggestedRewrite null.
-- Allow outcomes continue existing rephrase flow.
-
-### POST /api/analyze-intensity
-
-Plan:
-
-- Route text through contextRouter.js with contextType coaching_analysis.
-- Execute deterministic and semantic classification.
-- Decision engine returns stop or allow.
-- Stop outcome uses deterministic blocked shape to maintain compatibility.
-- Allow outcome continues intensity and communication analysis pipeline.
-
-### POST /api/coach-interactions (if applicable)
-
-Plan:
-
-- Do not change current persistence semantics by default.
-- Apply classification only if this endpoint begins accepting free-text coaching prompts in future.
-- If free text is added later, use contextType coach_interaction and apply same decision pipeline.
-
-### Journal routes (if applicable)
-
-Plan:
-
-- Journal text may contain high-risk disclosures.
-- For create entry endpoints, classify text with contextType journal_entry.
-- Initial policy recommendation:
-  - Do not block journal write by default.
-  - Attach non-invasive safety metadata for optional UI guidance.
-  - Escalate only if explicit emergency patterns indicate immediate risk and product policy requires intervention.
+If separately approved after privacy review, a shadow invocation may receive the current messaging text and bounded context in parallel with the existing deterministic path. It must be time-bounded, failure-isolated, and observational only. It must not delay, alter, or become an input to current route behavior, `SafetyDecisionEngine`, or enforcement. Route scope beyond messaging requires separate design and approval.
 
 ## 5. Deterministic safety layer behavior
 
@@ -261,59 +213,31 @@ Semantic layer goals:
 
 - Detect risk phrasing not captured by explicit patterns.
 - Improve recall on abuse, coercion, threats, stalking, and unsafe dynamics.
-- Quantify confidence and urgency for policy decisions.
+- Produce structured observations for human review and disagreement analysis.
 
 Operating rules:
 
-- Semantic layer is advisory when deterministic already hard-stops.
-- Semantic layer is decision-informing when deterministic level is 0 to 2.
-- Semantic output is normalized to existing taxonomy for compatibility.
+- Semantic inference is independent of deterministic output and is shadow-only in the first experiment.
+- Semantic output does not enter `SafetyDecisionEngine` or route enforcement during initial shadow mode.
+- Semantic output uses existing taxonomy keys for comparison compatibility only.
 
 Semantic result quality constraints:
 
-- Confidence values are bounded to 0.0 to 1.0.
-- Rationale text must avoid diagnosis and sensitive raw quote leakage in logs.
+- Model resolution is distinct from human annotation certainty; numeric confidence is deferred as a decision input.
+- Evidence references use bounded input offsets; no free-form chain-of-thought or raw quote retention is stored by default.
 - Category outputs must be deterministic taxonomy keys.
 
-## 7. Messaging System behavior
+## 7. Messaging Scope
 
-Scope:
+The first contract is messaging-only. A future shadow invocation may operate alongside messaging processing only after separate privacy and operational approval. It must not alter the existing deterministic route behavior, response shape, persistence, or safety decisions. Coach, journal, and other product surfaces remain outside this contract.
 
-- POST /api/send
-- POST /api/rephrase
+## 8. Decision Contract Separation
 
-Behavior policy:
-
-- Hard-stop cases return current blocked payload contract and do not persist blocked send content.
-- Allow cases proceed with existing communication coaching and generation behavior.
-- Borderline cases may trigger softer caution metadata internally without changing API shape in initial rollout.
-
-User experience intent:
-
-- Keep current blocking consistency.
-- Improve false-negative detection without introducing abrupt API changes.
-
-## 8. Coach Chat behavior
-
-Scope:
-
-- POST /api/analyze-intensity and coach-style interactions.
-
-Behavior policy:
-
-- Hard-stop categories continue to block normal coaching responses.
-- Non-stop categories continue normal coaching and communication intelligence.
-- Future extension: route-specific policy can allow contextual safety guidance without full block when urgency is medium and confidence is low.
-
-Voice constraints remain unchanged:
-
-- No diagnostic language.
-- No therapeutic framing.
-- Clear practical guidance and safety signposting when needed.
+`SafetyDecisionEngine` remains an internal decision-policy abstraction with deterministic precedence. The semantic result is not an input to that engine during initial shadow mode. Any future semantic-policy merge requires a separate contract, calibration evidence, high-severity review, privacy approval, and controlled-enforcement decision.
 
 ## 9. Expected JSON contracts
 
-Decision object contract (internal standard):
+Decision object contract (internal standard, current behavior):
 
 ```json
 {
@@ -321,7 +245,6 @@ Decision object contract (internal standard):
     "level": 0,
     "label": "normal",
     "category": "none",
-    "confidence": 0.0,
     "urgency": "none",
     "shouldStopNormalCoaching": false,
     "reason": "No high-risk safety signals detected.",
@@ -329,14 +252,14 @@ Decision object contract (internal standard):
     "decisionTrace": {
       "contextType": "messaging_send",
       "deterministicLevel": 0,
-      "semanticTopCategory": "none",
-      "semanticTopConfidence": 0.0,
-      "policyVersion": "vNext-1"
+      "policyVersion": "<future-policy-version>"
     }
   },
   "coachingBlocked": false
 }
 ```
+
+This example is a FUTURE / NOT ACTIVE IN INITIAL SHADOW MODE placeholder only. It must not be mistaken for a current active contract field or current governed policy version. `semanticTopConfidence` is experimental and non-authoritative if retained in future examples; it is not a current active contract field.
 
 Blocked response compatibility contract (external, unchanged in initial rollout):
 
@@ -379,11 +302,7 @@ Canonical categories:
 - violence_risk
 - immediate_danger
 
-Category normalization rules:
-
-- Multiple category hits are allowed.
-- Decision engine selects primary category by severity, then confidence.
-- Primary category maps to final level and label.
+Semantic observations may contain one primary category for comparison. Selecting an authoritative decision category or resolving multiple semantic candidates is outside the initial shadow contract.
 
 Level alignment:
 
@@ -394,41 +313,16 @@ Level alignment:
 - Level 4: self_harm_or_suicide, violence_risk
 - Level 5: immediate_danger
 
-## 11. Confidence and urgency mapping
+## 11. Confidence and urgency
 
-Confidence tiers:
-
-- low: 0.00 to 0.39
-- medium: 0.40 to 0.69
-- high: 0.70 to 0.89
-- very_high: 0.90 to 1.00
-
-Urgency levels:
-
-- none
-- monitor
-- elevated
-- high
-- immediate
-
-Default mapping logic:
-
-- Deterministic level 5 always maps to urgency immediate.
-- Deterministic level 4 maps to urgency high unless semantic immediate_danger confidence is very_high.
-- Deterministic level 3 maps to urgency elevated by default, upgraded to high when semantic confidence is high.
-- Deterministic levels 0 to 2 may be upgraded one tier when semantic confidence is very_high for a high-risk category.
-
-Safety policy guardrails:
-
-- Urgency escalation cannot bypass deterministic hard-stop precedence.
-- Low-confidence semantic outputs cannot independently force level 4 to 5 transitions.
+The initial shadow contract does not use semantic numeric confidence, thresholds, or semantic urgency to select policy or action. The classifier may report `resolution` as `clear`, `uncertain`, `ambiguous`, or `insufficient_evidence`; this is a model interpretation state, not human annotation certainty or policy authority. Existing Knowledge Base urgency remains authoritative for deterministic decisions. Any future confidence or urgency use requires a separate calibrated policy contract and explicit approval. Future merge, threshold, calibration, and enforcement concepts are FUTURE / NOT ACTIVE IN INITIAL SHADOW MODE.
 
 ## 12. Privacy and retention rules
 
 Privacy constraints for this phase:
 
 - Do not store raw user text in new safety metadata fields.
-- Persist only normalized category keys, confidence, level, and minimal decision trace when needed.
+- Persist only approved structured operational metadata, version references, hashes, and minimal comparison traces when needed.
 - Avoid logging sensitive quoted text in classification logs.
 
 Retention alignment:
@@ -449,13 +343,13 @@ Test layers:
 - Unit tests for each new module:
   - context extraction and route classification
   - semantic category mapping
-  - threshold and policy logic
-  - deterministic plus semantic merge rules
+  - bounded-context and evidence-reference validation
+  - abstention and operational failure handling
 - Contract tests:
   - confirm blocked response compatibility
   - confirm additive optional fields do not break shape
-- Integration tests:
-  - route-level stop/allow behavior across send, rephrase, analyze-intensity
+- Integration tests after separate approval:
+  - isolated shadow invocation cannot alter deterministic route behavior
 - Regression tests:
   - verify deterministic hard-stop behavior remains unchanged
 
@@ -470,28 +364,31 @@ Acceptance criteria:
 
 - No breaking API contract changes.
 - Deterministic level 3 to 5 behavior remains stable.
-- Semantic layer improves detection coverage for known missed variants.
+- Semantic observations are reviewable without changing deterministic behavior.
 
 ## 14. Migration plan from current Safety Engine
 
+This plan is FUTURE / NOT ACTIVE IN INITIAL SHADOW MODE.
+
 Phase 0: Documentation and policy freeze
 
-- Finalize taxonomy, thresholds, and response policy.
+- Finalize taxonomy, the semantic result contract, privacy constraints, and shadow comparison protocol.
 - Align contract expectations with product and API docs.
 
 Phase 1: Introduce modules behind flags
 
-- Add contextRouter.js, semanticSafetyClassifier.js, safetyKnowledgeBase.js, safetyDecisionEngine.js.
-- Keep semantic layer dry-run only at first (observe, do not enforce).
+- Add an isolated classifier interface and shadow runner only after separate implementation approval.
+- Keep semantic layer dry-run only (observe, do not enforce).
 
 Phase 2: Shadow evaluation
 
-- Compare deterministic-only vs deterministic-plus-semantic outcomes.
-- Track disagreement rates and calibrate thresholds.
+- Compare independent deterministic and semantic observations.
+- Track disagreements for human review; do not calibrate policy thresholds in the first experiment.
+- Require the held-out gate before any formal HELD_OUT evaluation.
 
 Phase 3: Controlled enforcement
 
-- Enable semantic-informed decisions for selected routes with rollout gates.
+- Consider semantic-informed decisions only after separate controlled-enforcement approval.
 - Keep blocked external payload contract unchanged.
 
 Phase 4: General availability
@@ -505,6 +402,8 @@ Rollback plan:
 - Preserve existing route behavior with no schema rollback required.
 
 ## 15. Implementation checklist
+
+This checklist is FUTURE / NOT ACTIVE IN INITIAL SHADOW MODE unless separately approved.
 
 - Define context envelope schema for all target routes.
 - Implement contextRouter.js with route mappings.
@@ -525,6 +424,8 @@ Current completion markers:
 - Phase 2 complete: `safetyKnowledgeBase.js`
 - Phase 3 complete (internal-only, non-enforcing): `safetyDecisionEngine.js`
 - Semantic classifier not started: `semanticSafetyClassifier.js`
+
+No semantic classifier output currently enters route authority, threshold authority, or enforcement authority.
 
 ## 16. Risks and mitigations
 

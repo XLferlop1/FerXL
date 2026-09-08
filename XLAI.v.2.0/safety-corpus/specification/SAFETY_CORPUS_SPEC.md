@@ -191,22 +191,54 @@ Corpus annotations may describe how tone, pacing, resource visibility, and coach
 
 However, the existing safety policy remains authoritative: Levels 3-5 must block normal coaching/rewrite/send behavior and return the existing deterministic safety response path. This corpus work must not restore normal behavior, change regex rules, modify response contracts, or alter route enforcement.
 
-## 19. Future Semantic Classifier Contract
+## 19. Validation responsibility boundaries
 
-A future semantic classifier output is documented conceptually as follows; no classifier is implemented here:
+Schema validation is structural only. It validates that a `SemanticResult` is well-formed, carries the correct state-machine shape, uses the canonical category vocabulary, preserves `level` as an integer within 0-5 or null, and enforces the success/abstained/operational-failure conditions. It does not define category-to-level policy policy or infer whether a category/level pair is valid under the Knowledge Base.
 
-```json
-{
-  "category": "existing_safety_category_key",
-  "level": 0,
-  "confidence": 0.0,
-  "semanticSignals": []
-}
-```
+Future policy-aware validation must load the canonical `engine/safetyKnowledgeBase.js`, validate that the category exists in the governed taxonomy, validate that the predicted `category` and `level` align with the canonical policy mapping for that version, and validate `policyReferenceVersion` against the canonical Knowledge Base reference. This must not duplicate the Knowledge Base mapping in the JSON Schema.
 
-`category` must use an existing Knowledge Base key. `level` must preserve 0-5 semantics. `confidence` must be bounded from 0 to 1. `semanticSignals` must describe evidence without replacing deterministic matched signals or policy.
+Future ontology-aware validation must validate governed `semanticSignals` against the published ontology and reject unknown ontology signal IDs or invalid semantics for the current contract version.
 
-## 20. Shadow Mode
+Future input-aware validation must validate evidence ranges against the actual bounded supplied input, ensure `start < end`, and ensure offsets do not exceed the referenced text window. It must also reject unknown evidence properties and invalid range inputs outside the bounded provenance model.
+
+These validators are future requirements outside the initial schema contract unless an existing validation hook is already trivial and non-architectural.
+
+## 20. First experiment gate
+
+The first semantic classifier experiment is mandatory limited to:
+
+- zero-shot structured inference;
+- development records only;
+- no fine-tuning;
+- no HELD_OUT access;
+- no benchmark accuracy claim;
+- no calibration claim;
+- no generalization claim;
+- current turn plus at most two directly preceding turns;
+- confidence deferred.
+
+HELD_OUT examples must not be inspected for first-experiment debugging, prompt design, few-shot examples, threshold tuning, calibration, model selection, or prompt iteration. That protection applies before any formal HELD_OUT evaluation and remains in effect until the evaluation protocol, reporting rules, and human approval process are explicitly defined.
+
+The first future classifier is a Turn Semantic Safety Classifier: an internal shadow-mode observer that interprets the current user-authored message with, at most, its two directly preceding turns. It may identify governed semantic signals, one primary existing category, an aligned semantic level, model resolution, and structured evidence references. It must not receive gold annotations, expected behavior, cumulative state, safety transitions, behavioral context, exposure metadata, deterministic output, or prior semantic output as inference features. Deterministic and semantic results are compared only after independent inference.
+
+SemanticResult contract `0.2.0` requires contract, classifier, ontology, and policy-reference versions; category; level; semantic signals; model resolution; evidence references; and operational inference status. `resolution` uses `clear`, `uncertain`, `ambiguous`, or `insufficient_evidence` and is distinct from human corpus `annotationCertainty`. An abstained result uses null category and level rather than inventing a new canonical category or treating insufficient evidence as `none`. Operational failures such as timeout, invalid output, and provider error remain distinct from semantic abstention.
+
+Evidence references identify only `current_turn` or bounded `context_turn` input with offsets `0`, `-1`, or `-2` and character ranges. They support current-turn interpretation of quotation, retraction, minimization, reference, pronouns, reported speech, and attribution; they do not authorize copying historical safety state into the current result. Persistent results store references rather than raw excerpts. Free-form model chain-of-thought, expected behavior, runtime action, cumulative state, trajectory, behavioral baselines, recipient modeling, and diagnosis are outside this contract.
+
+Numeric model confidence is deferred from the first experiment. The schema reserves an optional bounded experimental score that is neither a probability, a threshold, a policy input, a training target, nor a user-facing risk claim.
+
+## 21. Held-out gate before formal evaluation
+
+Before any first formal HELD_OUT evaluation, the project must require all of the following:
+
+1. an immutable exposure/evaluation history mechanism;
+2. an approved evaluation protocol;
+3. approved reporting rules;
+4. explicit human approval to expose HELD_OUT examples.
+
+This gate is required before any HELD_OUT data may be used for formal evaluation. Do not implement lifecycle storage in this phase; do not change manifest assignments; and do not open HELD_OUT examples for prompt iteration or debugging before the gate is satisfied.
+
+## 22. Shadow Mode
 
 Shadow mode must follow these rules:
 
@@ -219,39 +251,39 @@ Shadow mode must follow these rules:
 - false negatives are reviewed;
 - confidence is calibrated before controlled enforcement.
 
-Shadow mode must not change external API payloads, route behavior, resource handling, or the current blocking path.
+Shadow mode must not change external API payloads, route behavior, resource handling, or the current blocking path. Semantic inference must be failure-isolated: timeout, provider unavailability, malformed output, validation failure, queue overload, exception, or logging failure must leave deterministic processing and user-visible behavior unaffected. Raw message text may be processed transiently but must not be persistently logged by default. Operational logs, evaluation records, and training data are distinct; running real user text through semantic inference does not make it training data.
 
-## 21. Evaluation Separation
+## 23. Evaluation Separation
 
 Training, development, QA, calibration, and gold evaluation data must be separated by purpose and access. A case used to tune prompts, rules, labels, or thresholds must not silently serve as an unbiased final evaluation case.
 
 Evaluation should report category and level performance, false positives, false negatives, uncertainty, near-miss behavior, multi-turn behavior, and communication-risk leakage separately. Safety performance must not be hidden inside general communication-quality metrics.
 
-## 22. Synthetic Data Rules
+## 24. Synthetic Data Rules
 
 Synthetic data may expand coverage of rare, ambiguous, and safety-sensitive situations, but it must be clearly marked as synthetic and must not be presented as lived experience. Generation must avoid copying identifiable real conversations, preserve realistic uncertainty, include negative and near-miss cases, and be reviewed for harmful stereotypes or accidental policy changes.
 
 Synthetic records cannot establish policy. They remain subordinate to the Knowledge Base and the existing safety architecture.
 
-## 23. Gold Standard Requirements
+## 25. Gold Standard Requirements
 
 Gold cases require a written rationale grounded in observable evidence, the exact existing category key, level, urgency where applicable, and a clear explanation of why nearby categories or near-miss interpretations do or do not apply.
 
 Ambiguous cases should support adjudicated alternatives or an explicit unresolved status. Gold labels must be versioned, reviewable, and protected from accidental changes caused by classifier output.
 
-## 24. Data Provenance and Privacy
+## 26. Data Provenance and Privacy
 
 Every case must record provenance at an appropriate level: synthetic, authored, consented and de-identified, transformed, or other approved source type. Personal identifiers, secrets, unnecessary location details, and identifying relationship details must be removed or generalized.
 
 Access, retention, redaction, and review practices must follow project privacy requirements. Corpus data must not be used to infer identities, diagnose people, or expose private conversations.
 
-## 25. Versioning
+## 27. Versioning
 
 Corpus, annotation ontology, gold labels, and evaluation splits must have independent versions with recorded compatibility to the Safety Knowledge Base policy version. Changes to category interpretation, annotation guidance, or gold labels require a changelog and review rationale.
 
 A corpus version cannot silently alter live policy. Any future integration must preserve deterministic precedence until controlled enforcement has been explicitly approved.
 
-## 26. Planned Directory Structure
+## 28. Planned Directory Structure
 
 The completed foundation includes this specification, the README, schemas, ontology, governance documentation, and development-only corpus validation. Future corpus data and evaluation work remain planned separately:
 
