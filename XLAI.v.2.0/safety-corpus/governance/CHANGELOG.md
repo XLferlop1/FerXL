@@ -2,6 +2,17 @@
 
 This changelog records versioned changes to the Safety Corpus foundation. It does not record runtime enforcement changes.
 
+## v0.1.6 - Phase 4C-D confidence contract clarification
+
+- Clarified `annotationCertainty` as an annotation-resolution state rather than probability or model confidence.
+- Designated existing human numeric confidence fields as legacy, non-calibrated, non-probabilistic, and non-authoritative metadata.
+- Documented that arbitrary new human numeric confidence values are prohibited and that sentinel replacement values such as `0.0` are rejected because they are indistinguishable from real low scores under the current schema.
+- Kept all existing corpus records unchanged; no current corpus numeric confidence values were migrated or altered during this phase.
+- Clarified that corpus expansion requiring new human numeric confidence values is gated until a future explicit schema migration removes or replaces these fields.
+- Clarified trajectory likelihood as a qualitative non-calibrated plausibility rubric.
+- Clarified the future semantic-result confidence field as an internal bounded model score, not a calibrated probability.
+- Confirmed no runtime, classifier, validator, manifest, or enforcement behavior changes were introduced by this documentation-only clarification.
+
 ## v0.1.5 - Self-Harm Semantic Clarification
 
 - Clarified direct and indirect self-harm ideation, suicidal intent, and immediate physical danger as evidence descriptors rather than policy or level proxies.

@@ -40,11 +40,28 @@ The allowed values are `draft`, `reviewed`, and `gold`. `ambiguous` is not a rev
 
 The allowed values are:
 
-- `clear`: available evidence supports a sufficiently clear annotation;
-- `uncertain`: a leading interpretation exists, but evidence or context remains incomplete;
-- `ambiguous`: available evidence supports multiple materially plausible interpretations and does not justify collapsing them into one confident conclusion.
+- `clear`: one annotation interpretation is sufficiently supported and no materially competing interpretation changes the annotation outcome;
+- `uncertain`: one interpretation leads, but available evidence remains materially incomplete;
+- `ambiguous`: two or more materially different annotation interpretations remain plausible and available evidence does not justify selecting a clear leader.
+
+`annotationCertainty` describes the annotation resolution state. It is not probability, model confidence, source-truth probability, risk probability, safety severity, or urgency. Source ambiguity belongs in the rationale, important unknowns, alternatives, context, and evidence rather than in the certainty value itself.
 
 Gold and ambiguity are compatible. A record may validly be `reviewStatus: gold` and `annotationCertainty: ambiguous` when the ambiguity was explicitly reviewed and the record meets the gold quality standard. Gold does not imply clear, and annotation certainty must never be treated as model confidence.
+
+### Legacy human numeric confidence metadata
+
+The current corpus contains human-authored numeric confidence fields for `safetyAnnotation.confidence`, `recipientPerspective.confidence`, factor-level confidence, and trajectory outcome confidence. These values are legacy metadata only and are not calibrated probabilities, policy authority, or model-training targets.
+
+The current contract is:
+
+- `LEGACY`: retained only for historical corpus content until a future explicit migration replaces or removes the field;
+- `NON-CALIBRATED`: not a probability, not a calibrated confidence score, and not a reliability estimate;
+- `NON-PROBABILISTIC`: not a likelihood, chance, or risk probability;
+- `NON-AUTHORITATIVE`: not used to determine category, level, urgency, policy, enforcement, or user-facing scoring.
+
+These fields must not be used as training targets, classifier inputs, few-shot selection signals, evaluation labels, calibration targets, threshold tuning inputs, category-selection inputs, safety-level inputs, urgency inputs, policy inputs, runtime enforcement signals, or user-facing scores. Their magnitude must not be interpreted as a meaningful numerical distinction. Existing numbers are legacy metadata and must not be reinterpreted.
+
+New corpus examples must not create arbitrary new human numeric confidence values. A sentinel such as `0.0` is rejected because it is indistinguishable from a genuine low numeric score under the current schema and therefore creates semantic ambiguity. Until a later explicit schema migration removes or replaces these fields, corpus expansion that requires creating new values for those fields is gated.
 
 ### Behavioral-context quality
 

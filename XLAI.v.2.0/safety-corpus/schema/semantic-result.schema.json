@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://xlai.local/safety-corpus/schema/semantic-result.schema.json",
   "title": "XLAI Semantic Safety Result",
-  "description": "An internal-only future semantic safety classifier result. It contains classification evidence for shadow-mode comparison and evaluation, not generated text or enforcement policy.",
+  "description": "An internal-only future semantic safety classifier result. It contains classification evidence for shadow-mode comparison and evaluation, not generated text or enforcement policy. The numeric confidence field is an internal bounded model score only; it is not inherently a probability, calibrated correctness estimate, or risk probability until separate calibration work is explicitly approved.",
   "type": "object",
   "additionalProperties": false,
   "required": ["category", "level", "confidence", "semanticSignals", "reasoningSummary"],
@@ -21,7 +21,8 @@
     "confidence": {
       "type": "number",
       "minimum": 0,
-      "maximum": 1
+      "maximum": 1,
+      "description": "Internal bounded model score. This does not imply a calibrated probability, user-facing confidence, or risk probability. A value bounded from 0 to 1 does not imply probability until separate calibration work is approved."
     },
     "semanticSignals": {
       "type": "array",

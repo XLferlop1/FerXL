@@ -132,7 +132,16 @@ Retraction, joking, masking, and minimization are contextual evidence that can c
 
 ## 11. Conversation Trajectory Intelligence
 
-Conversation Trajectory Intelligence is probabilistic forecasting, not certainty. XLAI may estimate plausible directions such as clarification, productive discussion, repair, reconciliation, compromise, boundary establishment, defensiveness, misunderstanding, withdrawal, escalation, retaliation, relationship rupture, workplace consequence, safety escalation, or uncertain outcome.
+Conversation Trajectory Intelligence is qualitative forecasting, not certainty. XLAI may estimate plausible directions such as clarification, productive discussion, repair, reconciliation, compromise, boundary establishment, defensiveness, misunderstanding, withdrawal, escalation, retaliation, relationship rupture, workplace consequence, safety escalation, or uncertain outcome.
+
+The trajectory likelihood rubric is intentionally non-calibrated:
+
+- `low`: possible but weakly supported, with stronger alternatives;
+- `moderate`: plausible and supported, but contingent and not dominant;
+- `high`: strongly supported and currently the most plausible direction, while remaining non-deterministic;
+- `unknown`: insufficient evidence to judge relative plausibility.
+
+There is no percentage mapping, no probability bands, and no calibrated interpretation. Trajectory likelihood is qualitative plausibility, not a model confidence value, not a risk probability, and not a policy signal.
 
 Trajectory analysis must never claim certainty about future human behavior. It is a future schema and coaching annotation dimension, not a safety enforcement mechanism during the initial corpus phases.
 

@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://xlai.local/safety-corpus/schema/safety-case.schema.json",
   "title": "XLAI Safety Corpus Single-Turn Case",
-  "description": "A versioned, single-turn labeled safety corpus case. Expected behavior is evaluation data and does not redefine the authoritative Safety Knowledge Base or runtime enforcement.",
+  "description": "A versioned, single-turn labeled safety corpus case. Expected behavior is evaluation data and does not redefine the authoritative Safety Knowledge Base or runtime enforcement. Legacy human numeric confidence values remain metadata only and are non-calibrated, non-probabilistic, and non-authoritative; they are not used for policy, classification, or user-facing scoring.",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -147,7 +147,12 @@
         "semanticSignals": { "$ref": "#/$defs/stringArray" },
         "expectedDeterministicSignals": { "$ref": "#/$defs/stringArray" },
         "importantAbsentSignals": { "$ref": "#/$defs/stringArray" },
-        "annotationRationale": { "$ref": "#/$defs/nonEmptyString" }
+        "annotationRationale": { "$ref": "#/$defs/nonEmptyString" },
+        "annotationCertainty": {
+          "type": "string",
+          "enum": ["clear", "uncertain", "ambiguous"],
+          "description": "Annotation resolution state for the human or gold label. This is not probability, model confidence, risk probability, or policy authority. Source ambiguity belongs in rationale, important unknowns, alternatives, context, and evidence."
+        }
       }
     },
     "communicationRisk": {
@@ -194,7 +199,12 @@
         "possibleInterpretations": { "$ref": "#/$defs/stringArray" },
         "possibleEmotionalResponses": { "$ref": "#/$defs/stringArray" },
         "possibleNeedsOrConcerns": { "$ref": "#/$defs/stringArray" },
-        "confidence": { "type": "number", "minimum": 0, "maximum": 1 },
+        "confidence": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "description": "Legacy human annotation metadata only. This is not a calibrated probability, not a model confidence score, and not user-facing policy authority. It must not imply recipient certainty, motive certainty, or future behavior probability."
+        },
         "evidence": { "$ref": "#/$defs/stringArray" },
         "unknowns": { "$ref": "#/$defs/stringArray" }
       },
@@ -206,8 +216,17 @@
       "required": ["outcome", "likelihood", "confidence", "evidence", "increasingFactors", "decreasingFactors"],
       "properties": {
         "outcome": { "$ref": "#/$defs/nonEmptyString" },
-        "likelihood": { "type": "string", "enum": ["low", "moderate", "high", "unknown"] },
-        "confidence": { "type": "number", "minimum": 0, "maximum": 1 },
+        "likelihood": {
+          "type": "string",
+          "enum": ["low", "moderate", "high", "unknown"],
+          "description": "Qualitative plausibility only; not percentage-based, not calibrated, and not a probability."
+        },
+        "confidence": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "description": "Legacy human annotation metadata only. This is not a probability, calibration target, or policy authority."
+        },
         "evidence": { "$ref": "#/$defs/stringArray" },
         "increasingFactors": { "$ref": "#/$defs/stringArray" },
         "decreasingFactors": { "$ref": "#/$defs/stringArray" }
@@ -233,7 +252,12 @@
       "properties": {
         "type": { "$ref": "#/$defs/nonEmptyString" },
         "evidence": { "$ref": "#/$defs/nonEmptyString" },
-        "confidence": { "type": "number", "minimum": 0, "maximum": 1 }
+        "confidence": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "description": "Legacy human annotation metadata only. This is not a diagnosis, trait probability, or future behavior probability."
+        }
       },
       "description": "An interaction-level observation, not a permanent or diagnostic personality label."
     },

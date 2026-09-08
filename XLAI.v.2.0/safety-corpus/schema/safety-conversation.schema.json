@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://xlai.local/safety-corpus/schema/safety-conversation.schema.json",
   "title": "XLAI Safety Corpus Multi-Turn Conversation",
-  "description": "A versioned multi-turn safety corpus conversation. Trajectory, recipient perspective, and user factors support evaluation and coaching design only; they are not safety enforcement mechanisms.",
+  "description": "A versioned multi-turn safety corpus conversation. Trajectory, recipient perspective, and user factors support evaluation and coaching design only; they are not safety enforcement mechanisms. Legacy human numeric confidence values remain metadata only and are non-calibrated, non-probabilistic, and non-authoritative; they are not used for policy, classification, or user-facing scoring.",
   "type": "object",
   "additionalProperties": false,
   "required": ["id", "schemaVersion", "corpusVersion", "conversationMetadata", "turns", "safetyAnnotation", "expectedBehavior", "cumulativeState", "safetyTransitions", "communicationPattern", "annotationMeta"],
@@ -70,7 +70,7 @@
         "annotationCertainty": {
           "type": "string",
           "enum": ["clear", "uncertain", "ambiguous"],
-          "description": "Certainty of this specific turn annotation, not numeric classifier confidence. It may differ from final conversation-level annotation certainty after all turns are considered."
+          "description": "Annotation resolution state for this specific turn. This is not probability, model confidence, source-truth probability, risk probability, safety severity, or urgency. It may differ from final conversation-level annotation certainty after all turns are considered."
         }
       },
       "description": "Optional per-turn annotation; an unknown turn need not have a full safety annotation. When present, annotationCertainty describes the specific turn; the conversation-level annotationCertainty reflects the complete available conversation."
@@ -161,7 +161,12 @@
         "possibleInterpretations": { "$ref": "#/$defs/stringArray" },
         "possibleEmotionalResponses": { "$ref": "#/$defs/stringArray" },
         "possibleNeedsOrConcerns": { "$ref": "#/$defs/stringArray" },
-        "confidence": { "type": "number", "minimum": 0, "maximum": 1 },
+        "confidence": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "description": "Legacy human annotation metadata only. This is not a calibrated probability, model confidence score, or user-facing policy authority. It must not imply certainty about motive, personality, or future behavior probability."
+        },
         "evidence": { "$ref": "#/$defs/stringArray" },
         "unknowns": { "$ref": "#/$defs/stringArray" }
       },
@@ -173,8 +178,17 @@
       "required": ["outcome", "likelihood", "confidence", "evidence", "increasingFactors", "decreasingFactors"],
       "properties": {
         "outcome": { "$ref": "#/$defs/nonEmptyString" },
-        "likelihood": { "type": "string", "enum": ["low", "moderate", "high", "unknown"] },
-        "confidence": { "type": "number", "minimum": 0, "maximum": 1 },
+        "likelihood": {
+          "type": "string",
+          "enum": ["low", "moderate", "high", "unknown"],
+          "description": "Qualitative plausibility only; not percentage-based, not calibrated, and not a probability."
+        },
+        "confidence": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "description": "Legacy human annotation metadata only. This is not a probability, calibration target, or policy authority."
+        },
         "evidence": { "$ref": "#/$defs/stringArray" },
         "increasingFactors": { "$ref": "#/$defs/stringArray" },
         "decreasingFactors": { "$ref": "#/$defs/stringArray" }
@@ -197,7 +211,12 @@
       "properties": {
         "type": { "$ref": "#/$defs/nonEmptyString" },
         "evidence": { "$ref": "#/$defs/nonEmptyString" },
-        "confidence": { "type": "number", "minimum": 0, "maximum": 1 }
+        "confidence": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "description": "Legacy human annotation metadata only. This is not a diagnosis, trait probability, or future behavior probability."
+        }
       },
       "description": "An interaction-level observation, not a permanent or diagnostic personality label."
     },

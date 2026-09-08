@@ -228,8 +228,12 @@ Assign both fields only after completing the annotation sequence and writing the
 
 These concepts are distinct and must not be treated as interchangeable:
 
-- `annotationCertainty`: how clear the gold or human annotation is given available evidence.
-- semantic classifier confidence: how confident a model is in its predicted safety result.
-- recipient-perspective confidence: confidence in a possible interpretation of another person's perspective.
-- trajectory confidence: confidence in a plausible future conversation direction.
-- factor confidence: confidence that a strength or vulnerability factor is supported by current interaction evidence.
+- `annotationCertainty`: the annotation resolution state for the human or gold label given available evidence. It is not probability, model confidence, source-truth probability, risk probability, safety severity, or urgency.
+- semantic classifier confidence: a future internal model score, not a calibrated probability, until separate calibration work is explicitly approved.
+- recipient-perspective confidence: legacy human annotation metadata only; it must not imply probability about what the recipient actually feels, certainty about motive, personality inference, or future behavior probability.
+- trajectory confidence: legacy human metadata only; it is not likelihood, calibration, or policy authority. The qualitative rubric for trajectory plausibility is preferred over numeric confidence.
+- factor confidence: legacy human metadata only; it must not imply a diagnosis, trait probability, or future behavior probability. Factors remain evidence-bound and interaction-level.
+
+Source ambiguity belongs in the rationale, important unknowns, alternatives, context, and evidence. Numeric confidence is not a user-facing statement. Natural-language uncertainty is appropriate where needed: “One possibility is…”, “This could be read as…”, and “There is not enough context to know.”
+
+No confidence construct currently determines category, level, urgency, response action, or policy enforcement. During future shadow mode, a model score has no enforcement authority and may only be used in runtime policy after separate approval and calibration governance work.
