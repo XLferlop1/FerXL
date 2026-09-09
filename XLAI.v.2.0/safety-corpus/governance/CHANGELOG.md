@@ -2,6 +2,13 @@
 
 This changelog records versioned changes to the Safety Corpus foundation. It does not record runtime enforcement changes.
 
+## Phase 5B-2 - Policy-aware SemanticResult validator
+
+- Added a partial policy-aware SemanticResult validator that reads the canonical Safety Knowledge Base directly.
+- Added policy version and successful category-level mismatch validation with structured diagnostics.
+- Hardened category membership to own canonical properties and added prototype-chain regression coverage.
+- Added no structural, ontology, input/evidence, runtime, classifier, or shadow-mode integration.
+
 ## v0.2.1 - Phase 5A-4 semantic contract correction pass
 
 - Removed hardcoded category-to-level policy mapping branches from the SemanticResult schema while preserving canonical category vocabulary, level range, nullability, and success/abstained/failure state structure.
