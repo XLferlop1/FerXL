@@ -31,6 +31,7 @@
     },
     "semanticSignals": {
       "type": "array",
+      "uniqueItems": true,
       "items": { "type": "string" },
       "description": "Governed semantic ontology signal IDs only; these do not replace deterministic matched signals or policy."
     },
