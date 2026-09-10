@@ -9,6 +9,11 @@ This changelog records versioned changes to the Safety Corpus foundation. It doe
 - Hardened category membership to own canonical properties and added prototype-chain regression coverage.
 - Added no structural, ontology, input/evidence, runtime, classifier, or shadow-mode integration.
 
+## Phase 5C-2 - Ontology-aware SemanticResult validator
+
+- Added a partial ontology-aware SemanticResult validator for canonical semantic signal membership, mixed-artifact version compatibility, and signal/evidence consistency.
+- Kept policy, structural, input/evidence-span, classifier, runtime, and shadow-mode responsibilities outside this slice.
+
 ## v0.2.1 - Phase 5A-4 semantic contract correction pass
 
 - Removed hardcoded category-to-level policy mapping branches from the SemanticResult schema while preserving canonical category vocabulary, level range, nullability, and success/abstained/failure state structure.
