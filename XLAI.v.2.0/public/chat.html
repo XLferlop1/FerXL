@@ -16,7 +16,10 @@
           <p class="xl-subtitle">Private · Communication growth app</p>
           <p class="xl-shell-hint">Swipe left for Coach · Swipe right for Journal</p>
         </div>
-        <span id="currentUserBadge" class="xl-chip xl-user-badge">User: loading...</span>
+        <div class="xl-pill-row">
+          <span id="currentUserBadge" class="xl-chip xl-user-badge">User: loading...</span>
+          <button id="authButton" class="xl-secondary-btn" type="button">Sign in with Google</button>
+        </div>
         <nav class="xl-app-header-tabs" aria-label="Primary sections">
           <button id="tabChats" class="xl-pill xl-pill-primary is-active" data-nav-view="chats" type="button">Chats</button>
           <button id="tabCoach" class="xl-pill xl-pill-primary" data-nav-view="coach" type="button">Coach</button>
@@ -324,6 +327,9 @@
     </div>
 
     <script src="/beta-config.js"></script>
+    <script src="/firebase-config.js"></script>
+    <script src="/auth-client.js"></script>
+    <script type="module" src="/firebase-init.js"></script>
     <script src="/chat.js"></script>
     <script src="/journal.js"></script>
   </body>

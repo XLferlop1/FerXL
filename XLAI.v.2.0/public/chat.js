@@ -11,8 +11,87 @@ let selectedConversationId = null;        // the conversation currently open in 
 let conversations = [];                   // cached list from /api/conversations
 let chatMessages = [];                    // cached messages for selected thread
 const betaConfig = window.XL_BETA_CONFIG || {};
-let currentUserId = betaConfig.userId || "beta_default_user"; // placeholder user until login
+let currentUserId = betaConfig.userId || "beta_default_user"; // legacy beta placeholder only; not auth authority
 let currentTone = "calm";               // calm | professional | low-key
+const authButton = document.getElementById("authButton");
+const authClient = window.createFirebaseAuthClient ? window.createFirebaseAuthClient({
+  getCurrentUser: () => (window.xlaiAuth && typeof window.xlaiAuth.getCurrentUser === "function" ? window.xlaiAuth.getCurrentUser() : null),
+}) : null;
+
+async function authenticatedFetch(url, options = {}) {
+  if (window.xlaiAuth && typeof window.xlaiAuth.authenticatedFetch === "function") {
+    return window.xlaiAuth.authenticatedFetch(url, options);
+  }
+  if (!authClient) {
+    return fetch(url, options);
+  }
+  return authClient.authenticatedFetch(url, options);
+}
+
+function updateAuthButtonState(state = {}) {
+  if (!authButton) return;
+  const status = state.status || "signed_out";
+  const user = state.user || null;
+
+  if (status === "signed_in" && user && user.displayName) {
+    authButton.textContent = `Sign out (${user.displayName})`;
+    authButton.setAttribute("data-mode", "sign-out");
+    currentUserId = user.uid || currentUserId;
+    if (currentUserBadge) {
+      currentUserBadge.textContent = `User: ${user.uid}`;
+    }
+    return;
+  }
+
+  if (status === "initializing") {
+    authButton.textContent = "Loading...";
+    authButton.disabled = true;
+    return;
+  }
+
+  if (status === "config_missing") {
+    authButton.textContent = "Google auth unavailable";
+    authButton.disabled = true;
+    return;
+  }
+
+  if (status === "auth_error") {
+    authButton.textContent = "Google auth error";
+    authButton.disabled = false;
+    return;
+  }
+
+  authButton.textContent = "Sign in with Google";
+  authButton.disabled = false;
+  authButton.setAttribute("data-mode", "sign-in");
+  if (currentUserBadge) {
+    currentUserBadge.textContent = "User: signed out";
+  }
+}
+
+async function handleAuthButtonClick() {
+  if (!window.xlaiAuth) {
+    return;
+  }
+
+  const mode = authButton && authButton.getAttribute("data-mode");
+  if (mode === "sign-out") {
+    try {
+      await window.xlaiAuth.signOut();
+    } catch (error) {
+      console.error("[XL AI] Sign out error:", error);
+    }
+    return;
+  }
+
+  if (typeof window.xlaiAuth.signInWithGoogle === "function") {
+    try {
+      await window.xlaiAuth.signInWithGoogle();
+    } catch (error) {
+      console.error("[XL AI] Google sign in failed:", error);
+    }
+  }
+}
 let currentEmotion = null;              // calm | anxious | frustrated | sad | hopeful
 let analyzerOn = true;                  // toggle via Analyzer button
 
@@ -1823,7 +1902,7 @@ async function refineCurrentDraft() {
   refineDraftBtn.textContent = "Refining...";
 
   try {
-    const res = await fetch("/api/rephrase", {
+    const res = await authenticatedFetch("/api/rephrase", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -2042,7 +2121,7 @@ async function loadConversations() {
   if (!listEl) return;
 
   const fetchConversationRows = async (url) => {
-    const res = await fetch(url);
+    const res = await authenticatedFetch(url);
     if (!res.ok) {
       throw new Error(`Conversation fetch failed (${res.status})`);
     }
@@ -2249,7 +2328,7 @@ async function loadThread(convId) {
   if (!historyEl) return;
   historyEl.innerHTML = "";
   try {
-    const res = await fetch(`/api/messages?conversation=${encodeURIComponent(convId)}&order=asc`);
+    const res = await authenticatedFetch(`/api/messages?conversation=${encodeURIComponent(convId)}&order=asc`);
     if (!res.ok) return;
     const data = await res.json();
     chatMessages = Array.isArray(data.messages) ? data.messages : [];
@@ -2912,7 +2991,7 @@ async function askCoach(rawText, draftText = "") {
     // Phase 7: Build context for Coach
     const context = buildCoachContext();
 
-    const res = await fetch("/api/analyze-intensity", {
+    const res = await authenticatedFetch("/api/analyze-intensity", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -2946,7 +3025,7 @@ async function askCoach(rawText, draftText = "") {
     renderCoachResponse(analysis, coaching, communication);
 
     try {
-      await fetch("/api/coach-interactions", {
+      await authenticatedFetch("/api/coach-interactions", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -3081,7 +3160,7 @@ async function analyzeText(rawText) {
   if (!text) return;
 
   try {
-    const res = await fetch("/api/analyze-intensity", {
+    const res = await authenticatedFetch("/api/analyze-intensity", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -3180,7 +3259,7 @@ async function sendMessageToServer(originalText, finalText, intensityInfo, wasPa
     coachMode,
   };
 
-  const res = await fetch("/api/send", {
+  const res = await authenticatedFetch("/api/send", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),
@@ -3225,7 +3304,7 @@ async function refreshEqCoach() {
     const url = `/api/behavior-feedback?conversation=${encodeURIComponent(
       currentConversationId
     )}`;
-    const res = await fetch(url);
+    const res = await authenticatedFetch(url);
     if (!res.ok) {
       console.error("[XL AI] /api/behavior-feedback error status:", res.status);
       return;
@@ -3465,6 +3544,10 @@ function wireEvents() {
   });
 
   // Coach refresh button now resets the UI to start a new message
+  if (authButton) {
+    authButton.addEventListener("click", handleAuthButtonClick);
+  }
+
   if (refreshCoachButton) {
     refreshCoachButton.addEventListener("click", () => {
       if (messageInput) {
@@ -3549,7 +3632,7 @@ if (analyzerToggleBtn) {
 async function loadPatternSummary() {
   try {
     const url = `/api/pattern-summary?conversation=${encodeURIComponent(currentConversationId)}`;
-    const res = await fetch(url);
+    const res = await authenticatedFetch(url);
     if (!res.ok) {
       console.error("[XL AI] /api/pattern-summary error status:", res.status);
       return;
@@ -3589,6 +3672,10 @@ function bootstrap() {
   if (currentUserBadge) {
     currentUserBadge.textContent = `User: ${currentUserId}`;
   }
+  if (window.xlaiAuth && typeof window.xlaiAuth.onAuthStateChange === "function") {
+    window.xlaiAuth.onAuthStateChange(updateAuthButtonState);
+  }
+  updateAuthButtonState({ status: "signed_out" });
   setTone(currentTone);
   updateAnalyzerUI();
   setEmotion(null);
