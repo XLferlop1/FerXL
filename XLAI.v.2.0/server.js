@@ -21,6 +21,7 @@ const { getFirebaseAdminAuth } = require("./auth/firebaseAdmin");
 const { createFirebaseAuthMiddleware } = require("./auth/firebaseAuthMiddleware");
 const { createInternalDevGate } = require("./auth/internalDevGate");
 const { isInternalDevRoute, isPrivateApiRoute } = require("./auth/privateRoutes");
+const { runOwnershipMigrations } = require("./db/migrations");
 
 // Load environment variables (.env)
 dotenv.config();
@@ -156,6 +157,8 @@ async function initDb() {
       ALTER TABLE journal_entries
       ADD COLUMN IF NOT EXISTS retain_until_timestamp TIMESTAMPTZ;
     `);
+
+    await runOwnershipMigrations(pool);
 
     // Communication Intelligence persistence fields (additive, nullable)
     await pool.query(`
