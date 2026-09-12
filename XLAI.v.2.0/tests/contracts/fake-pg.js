@@ -12,6 +12,8 @@ const ACTIVE_USER = {
 class FakePool {
   constructor() {
     this.conversations = [];
+    this.messages = [];
+    this.nextMessageId = 1;
   }
 
   record(event) {
@@ -44,6 +46,44 @@ class FakePool {
       this.conversations.push(conversation);
       this.record({ type: "conversation_insert", conversation });
       return { rows: [conversation], rowCount: 1 };
+    }
+
+    if (/FROM conversations/i.test(sql) && /WHERE id = \$1/i.test(sql)) {
+      const conversation = this.conversations.find((row) => row.id === params[0] && row.owner_user_id === params[1]);
+      return { rows: conversation ? [conversation] : [], rowCount: conversation ? 1 : 0 };
+    }
+
+    if (/INSERT INTO messages/i.test(sql) && /FROM conversations/i.test(sql)) {
+      const conversation = this.conversations.find((row) => row.id === params[0] && row.owner_user_id === params[1]);
+      if (!conversation) return { rows: [], rowCount: 0 };
+
+      const message = {
+        id: this.nextMessageId++,
+        conversation_id: conversation.id,
+        conversation_uuid: conversation.id,
+        user_id: params[1],
+        original_text: params[2],
+        final_text: params[3],
+        pre_send_emotion: params[4],
+        intensity_score: params[5],
+        was_pause_taken: params[6],
+        used_suggestion: params[7],
+        action_taken: params[8],
+        pause_reason: params[9],
+        risks: params[10],
+        intent_guess: params[11],
+        coach_mode: params[12],
+        created_at_timestamp: "2026-09-12T00:00:00.000Z",
+      };
+      this.messages.push(message);
+      this.record({ type: "message_insert", message });
+      return { rows: [message], rowCount: 1 };
+    }
+
+    if (/FROM messages m/i.test(sql) && /JOIN conversations c/i.test(sql)) {
+      const rows = this.messages.filter((row) => row.conversation_uuid === params[0]
+        && this.conversations.some((conversation) => conversation.id === row.conversation_uuid && conversation.owner_user_id === params[1]));
+      return { rows, rowCount: rows.length };
     }
 
     if (/FROM conversations/i.test(sql) && /WHERE owner_user_id = \$1/i.test(sql)) {

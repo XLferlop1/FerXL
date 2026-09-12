@@ -107,6 +107,15 @@ function conversationInsertCount() {
     .filter((event) => event.type === "conversation_insert").length;
 }
 
+function messageInsertCount() {
+  if (!fs.existsSync(FAKE_PG_TRACE_FILE)) return 0;
+  return fs.readFileSync(FAKE_PG_TRACE_FILE, "utf8")
+    .split("\n")
+    .filter(Boolean)
+    .map((line) => JSON.parse(line))
+    .filter((event) => event.type === "message_insert").length;
+}
+
 async function getJson(route) {
   const res = await fetch(`${BASE_URL}${route}`, { headers: TEST_AUTH_HEADERS });
   let payload = null;
@@ -149,6 +158,8 @@ async function run() {
     fs.rmSync(FAKE_PG_TRACE_FILE, { force: true });
     await waitForHealth();
 
+    let ownedConversationId = null;
+
     await runCase("conversation route creates an authenticated owned conversation", async () => {
       const before = conversationInsertCount();
       const { status, payload } = await postJson("/api/conversations", { title: "Test conversation" });
@@ -158,6 +169,125 @@ async function run() {
       assert(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(payload.conversation.id), "Expected server UUID");
       assert(payload.conversation.owner_user_id === "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa", "Expected active internal owner");
       assert(conversationInsertCount() === before + 1, "Expected exactly one conversation insert");
+      ownedConversationId = payload.conversation.id;
+    });
+
+    await runCase("owned message write and reads use the conversation UUID", async () => {
+      const before = messageInsertCount();
+      const write = await postJson("/api/messages", {
+        conversation_uuid: ownedConversationId,
+        conversation_id: "legacy-untrusted-id",
+        userId: "client-user-b",
+        finalText: "Owned message",
+      });
+
+      assert(write.status === 200, `Expected 200 but got ${write.status}`);
+      assert(write.payload && write.payload.ok === true, "Expected successful message write");
+      assert(write.payload.message.conversation_uuid === ownedConversationId, "Expected UUID bridge");
+      assert(write.payload.message.user_id === "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa", "Expected server owner identity");
+      assert(messageInsertCount() === before + 1, "Expected one owned message insert");
+
+      const messages = await getJson(`/api/messages?conversation=${encodeURIComponent(ownedConversationId)}&order=asc`);
+      assert(messages.status === 200, `Expected messages 200 but got ${messages.status}`);
+      assert(messages.payload.messages.length === 1, "Expected one owned message");
+
+      const history = await getJson(`/api/history?conversation=${encodeURIComponent(ownedConversationId)}`);
+      assert(history.status === 200, `Expected history 200 but got ${history.status}`);
+      assert(history.payload.messages.length === 1, "Expected one owned history message");
+    });
+
+    await runCase("owned send uses the owner-scoped message insert", async () => {
+      const before = messageInsertCount();
+      const result = await postJson("/api/send", {
+        conversation_uuid: ownedConversationId,
+        userId: "client-user-b",
+        finalText: "Owned send",
+        originalText: "Owned send",
+      });
+
+      assert(result.status === 200, `Expected 200 but got ${result.status}`);
+      assert(result.payload && result.payload.ok === true, "Expected successful send");
+      assert(messageInsertCount() === before + 1, "Expected one owned send insert");
+    });
+
+    for (const route of [
+      `/api/messages?conversation=33333333-3333-4333-8333-333333333333`,
+      `/api/history?conversation=33333333-3333-4333-8333-333333333333`,
+    ]) {
+      await runCase(`owned read rejects nonexistent conversation on ${route.split("?")[0]}`, async () => {
+        const result = await getJson(route);
+        assert(result.status === 404, `Expected 404 but got ${result.status}`);
+        assert(JSON.stringify(result.payload) === JSON.stringify({ error: "conversation_not_found" }), "Expected neutral not-found response");
+      });
+    }
+
+    await runCase("message write rejects nonexistent conversation without insertion", async () => {
+      const before = messageInsertCount();
+      const result = await postJson("/api/messages", {
+        conversation_uuid: "33333333-3333-4333-8333-333333333333",
+        finalText: "Should not persist",
+      });
+
+      assert(result.status === 404, `Expected 404 but got ${result.status}`);
+      assert(JSON.stringify(result.payload) === JSON.stringify({ error: "conversation_not_found" }), "Expected neutral not-found response");
+      assert(messageInsertCount() === before, "Expected zero message inserts");
+    });
+
+    await runCase("send rejects nonexistent conversation before private persistence", async () => {
+      const before = messageInsertCount();
+      const result = await postJson("/api/send", {
+        conversation_uuid: "33333333-3333-4333-8333-333333333333",
+        finalText: "Should not persist",
+      });
+
+      assert(result.status === 404, `Expected 404 but got ${result.status}`);
+      assert(JSON.stringify(result.payload) === JSON.stringify({ error: "conversation_not_found" }), "Expected neutral not-found response");
+      assert(messageInsertCount() === before, "Expected zero message inserts");
+    });
+
+    await runCase("send foreign ownership fails before safety or persistence", async () => {
+      const before = messageInsertCount();
+      const result = await postJson("/api/send", {
+        conversation_uuid: "22222222-2222-4222-8222-222222222222",
+        originalText: "I am in immediate danger and need help now.",
+        finalText: "I am in immediate danger and need help now.",
+      });
+
+      assert(result.status === 404, `Expected 404 but got ${result.status}`);
+      assert(JSON.stringify(result.payload) === JSON.stringify({ error: "conversation_not_found" }), "Expected ownership denial before downstream processing");
+      assert(messageInsertCount() === before, "Foreign send must not write");
+    });
+
+    await runCase("send nonexistent ownership fails before safety or persistence", async () => {
+      const before = messageInsertCount();
+      const result = await postJson("/api/send", {
+        conversation_uuid: "33333333-3333-4333-8333-333333333333",
+        originalText: "I am in immediate danger and need help now.",
+        finalText: "I am in immediate danger and need help now.",
+      });
+
+      assert(result.status === 404, `Expected 404 but got ${result.status}`);
+      assert(JSON.stringify(result.payload) === JSON.stringify({ error: "conversation_not_found" }), "Expected neutral ownership denial");
+      assert(messageInsertCount() === before, "Nonexistent send must not write");
+    });
+
+    await runCase("send owned conversation validates ownership before safety processing", async () => {
+      const before = messageInsertCount();
+      const result = await postJson("/api/send", {
+        conversation_uuid: ownedConversationId,
+        originalText: "I am in immediate danger and need help now.",
+        finalText: "I am in immediate danger and need help now.",
+      });
+
+      assert(result.status === 200, `Expected 200 but got ${result.status}`);
+      assert(result.payload && result.payload.coachingBlocked === true, "Expected owned request to reach safety processing");
+      assert(messageInsertCount() === before, "Safety-blocked owned send must not persist a normal message");
+    });
+
+    await runCase("malformed message conversation UUID is rejected", async () => {
+      const result = await getJson("/api/messages?conversation=not-a-uuid");
+      assert(result.status === 400, `Expected 400 but got ${result.status}`);
+      assert(JSON.stringify(result.payload) === JSON.stringify({ error: "invalid_conversation" }), "Expected sanitized invalid conversation response");
     });
 
     for (const [field, value] of [

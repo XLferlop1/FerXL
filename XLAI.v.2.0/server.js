@@ -27,6 +27,8 @@ const {
   createOwnedConversation,
   listOwnedConversations,
   getOwnedConversation,
+  readOwnedMessages,
+  insertOwnedMessage,
 } = require("./auth/conversationOwnership");
 
 // Load environment variables (.env)
@@ -365,123 +367,6 @@ function extractCommunicationPersistenceFields(communication) {
     communicationRisks: risks.length ? risks : null,
     communicationMaxRiskSeverity: maxRiskSeverity > 0 ? maxRiskSeverity : null,
   };
-}
-
-async function insertMessageRecord({
-  conversationId,
-  userId,
-  originalText = null,
-  finalText,
-  preSendEmotion = null,
-  intensityScore = null,
-  wasPauseTaken = false,
-  usedSuggestion = false,
-  actionTaken = null,
-  pauseReason = null,
-  risks = null,
-  intentGuess = null,
-  coachMode = null,
-  communicationFields = null,
-}) {
-  const ci = {
-    communicationIntentLabel: null,
-    communicationIntentConfidence: null,
-    communicationEmotionPrimary: null,
-    communicationEmotionIntensity: null,
-    communicationRelationshipType: null,
-    communicationRelationshipConfidence: null,
-    communicationRecipientReaction: null,
-    communicationStrategyMode: null,
-    communicationStrategyApproach: null,
-    communicationRisks: null,
-    communicationMaxRiskSeverity: null,
-    ...(communicationFields || {}),
-  };
-
-  return pool.query(
-    `
-      INSERT INTO messages (
-        conversation_id,
-        user_id,
-        original_text,
-        final_text,
-        pre_send_emotion,
-        intensity_score,
-        was_pause_taken,
-        used_suggestion,
-        action_taken,
-        pause_reason,
-        risks,
-        intent_guess,
-        coach_mode,
-        communication_intent_label,
-        communication_intent_confidence,
-        communication_emotion_primary,
-        communication_emotion_intensity,
-        communication_relationship_type,
-        communication_relationship_confidence,
-        communication_recipient_reaction,
-        communication_strategy_mode,
-        communication_strategy_approach,
-        communication_risks,
-        communication_max_risk_severity
-      )
-      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24)
-      RETURNING
-        id,
-        conversation_id,
-        user_id,
-        original_text,
-        final_text,
-        pre_send_emotion,
-        intensity_score,
-        was_pause_taken,
-        used_suggestion,
-        action_taken,
-        pause_reason,
-        risks,
-        intent_guess,
-        coach_mode,
-        communication_intent_label,
-        communication_intent_confidence,
-        communication_emotion_primary,
-        communication_emotion_intensity,
-        communication_relationship_type,
-        communication_relationship_confidence,
-        communication_recipient_reaction,
-        communication_strategy_mode,
-        communication_strategy_approach,
-        communication_risks,
-        communication_max_risk_severity,
-        created_at_timestamp;
-    `,
-    [
-      conversationId,
-      userId,
-      originalText || null,
-      finalText,
-      preSendEmotion || null,
-      typeof intensityScore === "number" ? intensityScore : null,
-      !!wasPauseTaken,
-      !!usedSuggestion,
-      actionTaken || null,
-      pauseReason || null,
-      Array.isArray(risks) ? risks : null,
-      intentGuess || null,
-      coachMode || null,
-      ci.communicationIntentLabel || null,
-      typeof ci.communicationIntentConfidence === "number" ? ci.communicationIntentConfidence : null,
-      ci.communicationEmotionPrimary || null,
-      typeof ci.communicationEmotionIntensity === "number" ? ci.communicationEmotionIntensity : null,
-      ci.communicationRelationshipType || null,
-      typeof ci.communicationRelationshipConfidence === "number" ? ci.communicationRelationshipConfidence : null,
-      ci.communicationRecipientReaction || null,
-      ci.communicationStrategyMode || null,
-      ci.communicationStrategyApproach || null,
-      Array.isArray(ci.communicationRisks) ? ci.communicationRisks : null,
-      typeof ci.communicationMaxRiskSeverity === "number" ? ci.communicationMaxRiskSeverity : null,
-    ]
-  );
 }
 
 // Compute adaptive metrics for a user
@@ -1198,6 +1083,14 @@ privateRoute("post", "/api/send", async (req, res) => {
     return res.status(500).json({ error: "Database is not configured (no DATABASE_URL)" });
   }
 
+  const ownerUserId = req && req.xlaiUser && req.xlaiUser.id ? req.xlaiUser.id : null;
+  const requestBody = req.body || {};
+  const conversationId = requestBody.conversation_uuid || requestBody.conversationId;
+  const ownership = await getOwnedConversation({ pool, ownerUserId, conversationId });
+  if (!ownership.ok) {
+    return res.status(ownership.status).json({ error: ownership.error });
+  }
+
   const contextEnvelope = buildContextEnvelope({
     route: req.path,
     body: req.body,
@@ -1206,20 +1099,18 @@ privateRoute("post", "/api/send", async (req, res) => {
   });
 
   const {
-    conversationId,
     originalText,
     finalText,
     preSendEmotion,
     intensityScore,
     wasPauseTaken,
     usedSuggestion,
-    userId,
     actionTaken,
     pauseReason,
     risks,
     intentGuess,
     coachMode,
-  } = req.body || {};
+  } = requestBody;
 
   const safetyText = collectSafetyInput([originalText, finalText, pauseReason]);
   const safety = evaluateSafety(safetyText);
@@ -1267,10 +1158,9 @@ privateRoute("post", "/api/send", async (req, res) => {
   triggerPrivacyCleanup("api_send", { minIntervalMs: 5 * 60 * 1000 });
 
   // basic validation – require conversation, user and finalText; originalText may be null for privacy
-  if (!conversationId || !userId || !finalText) {
+  if (!conversationId || !finalText) {
     console.log("[XL AI] Skipping insert, missing required fields:", {
       conversationId,
-      userId,
       hasOriginalText: !!originalText,
       hasFinalText: !!finalText,
     });
@@ -1279,9 +1169,10 @@ privateRoute("post", "/api/send", async (req, res) => {
 
 try {
   const communicationFields = extractCommunicationPersistenceFields(communicationAnalysis.communication);
-    const result = await insertMessageRecord({
+    const result = await insertOwnedMessage({
+      pool,
       conversationId,
-      userId,
+      ownerUserId,
       originalText,
       finalText,
       preSendEmotion,
@@ -1296,7 +1187,11 @@ try {
       communicationFields,
     });
 
-    const row = result.rows[0];
+    if (!result.ok) {
+      return res.status(result.status).json({ error: result.error });
+    }
+
+    const row = result.message;
     const rawCreatedAt = row.created_at_timestamp;
     let normalizedCreatedAt = new Date().toISOString();
     if (typeof rawCreatedAt === "string") {
@@ -1542,40 +1437,20 @@ privateRoute("get", "/api/history", async (req, res) => {
       .json({ error: "Database is not configured (no DATABASE_URL)." });
   }
 
-  const conversationId = req.query.conversation || DEFAULT_CONVERSATION_ID;
-
-  try {
-    const result = await pool.query(
-      `
-      SELECT
-        id,
-        conversation_id,
-        user_id,
-        original_text,
-        final_text,
-        pre_send_emotion,
-        intensity_score,
-        was_pause_taken,
-        used_suggestion,
-        action_taken,
-        pause_reason,
-        risks,
-        intent_guess,
-        coach_mode,
-        created_at_timestamp
-      FROM messages
-      WHERE conversation_id = $1
-      ORDER BY created_at_timestamp DESC
-      LIMIT 100;
-    `,
-      [conversationId]
-    );
-
-    res.json({ messages: result.rows });
-  } catch (err) {
-    console.error("❌ /api/history DB error:", err);
-    res.status(500).json({ error: "Failed to load history." });
+  const ownerUserId = req && req.xlaiUser && req.xlaiUser.id ? req.xlaiUser.id : null;
+  const conversationId = req.query.conversation_uuid || req.query.conversation;
+  const result = await readOwnedMessages({
+    pool,
+    ownerUserId,
+    conversationId,
+    limit: 100,
+    order: "DESC",
+  });
+  if (!result.ok) {
+    return res.status(result.status).json({ error: result.error });
   }
+
+  return res.json({ messages: result.messages });
 });
 
 // 🔹 4) Behavior feedback for the right-hand EQ coach
@@ -1739,44 +1614,15 @@ privateRoute("get", "/api/messages", async (req, res) => {
       .json({ error: "Database is not configured (no DATABASE_URL)." });
   }
 
-  const conversationId = String(req.query.conversation || "").trim();
-  if (!conversationId) {
-    return res.status(400).json({ error: "Missing required query param: conversation" });
-  }
+  const ownerUserId = req && req.xlaiUser && req.xlaiUser.id ? req.xlaiUser.id : null;
+  const conversationId = req.query.conversation_uuid || req.query.conversation;
   const order = String(req.query.order || "desc").toLowerCase() === "asc" ? "ASC" : "DESC";
-
-  try {
-    const result = await pool.query(
-      `
-      SELECT
-        id,
-        conversation_id,
-        user_id,
-        original_text,
-        final_text,
-        pre_send_emotion,
-        intensity_score,
-        was_pause_taken,
-        used_suggestion,
-        action_taken,
-        pause_reason,
-        risks,
-        intent_guess,
-        coach_mode,
-        created_at_timestamp
-      FROM messages
-      WHERE conversation_id = $1
-      ORDER BY created_at_timestamp ${order}
-      LIMIT 200;
-      `,
-      [conversationId]
-    );
-
-    res.json({ ok: true, messages: result.rows });
-  } catch (err) {
-    console.error("[XL AI] /api/messages DB error:", err);
-    res.status(500).json({ error: "Failed to load messages" });
+  const result = await readOwnedMessages({ pool, ownerUserId, conversationId, order });
+  if (!result.ok) {
+    return res.status(result.status).json({ error: result.error });
   }
+
+  return res.json({ ok: true, messages: result.messages });
 });
 
 // 3b) Persist chat messages for the real Chats surface
@@ -1787,7 +1633,7 @@ privateRoute("post", "/api/messages", async (req, res) => {
 
   const {
     conversationId,
-    userId,
+    conversation_uuid: conversationUuid,
     text,
     finalText,
     originalText,
@@ -1802,20 +1648,21 @@ privateRoute("post", "/api/messages", async (req, res) => {
     coachMode,
   } = req.body || {};
 
-  const safeConversationId = String(conversationId || "").trim();
-  const safeUserId = String(userId || "").trim();
+  const ownerUserId = req && req.xlaiUser && req.xlaiUser.id ? req.xlaiUser.id : null;
+  const safeConversationId = String(conversationUuid || conversationId || "").trim();
   const safeFinalText = String(finalText || text || "").trim();
 
-  if (!safeConversationId || !safeUserId || !safeFinalText) {
+  if (!safeConversationId || !safeFinalText) {
     return res.status(400).json({ error: "Missing required fields" });
   }
 
   triggerPrivacyCleanup("api_messages", { minIntervalMs: 5 * 60 * 1000 });
 
   try {
-    const result = await insertMessageRecord({
+    const result = await insertOwnedMessage({
+      pool,
       conversationId: safeConversationId,
-      userId: safeUserId,
+      ownerUserId,
       originalText,
       finalText: safeFinalText,
       preSendEmotion,
@@ -1829,7 +1676,11 @@ privateRoute("post", "/api/messages", async (req, res) => {
       coachMode,
     });
 
-    const message = result.rows[0] || null;
+    if (!result.ok) {
+      return res.status(result.status).json({ error: result.error });
+    }
+
+    const message = result.message || null;
     res.json({ ok: true, message });
   } catch (err) {
     console.error("[XL AI] /api/messages insert error:", err);
