@@ -23,6 +23,11 @@ const { createInternalDevGate } = require("./auth/internalDevGate");
 const { createInternalUserResolver } = require("./auth/internalUserResolver");
 const { isInternalDevRoute, isPrivateApiRoute } = require("./auth/privateRoutes");
 const { runOwnershipMigrations } = require("./db/migrations");
+const {
+  createOwnedConversation,
+  listOwnedConversations,
+  getOwnedConversation,
+} = require("./auth/conversationOwnership");
 
 // Load environment variables (.env)
 dotenv.config();
@@ -1650,46 +1655,80 @@ privateRoute("get", "/api/behavior-feedback", async (req, res) => {
 });
 
 // 3) Fetch conversation list for Chats
+privateRoute("post", "/api/conversations", async (req, res) => {
+  if (!pool) {
+    return res.status(503).json({ error: "conversation_service_unavailable" });
+  }
+
+  const ownerUserId = req && req.xlaiUser && req.xlaiUser.id ? req.xlaiUser.id : null;
+  if (!ownerUserId) {
+    return res.status(503).json({ error: "conversation_service_unavailable" });
+  }
+
+  const requestBody = req && req.body ? req.body : {};
+  const requestTitle = typeof requestBody.title === "string" ? requestBody.title : null;
+  const disallowedRequestFields = [
+    "id",
+    "conversationId",
+    "conversation_id",
+    "conversation_uuid",
+    "owner_user_id",
+    "ownerUserId",
+    "clientOwnerUserId",
+    "clientConversationId",
+  ];
+
+  if (disallowedRequestFields.some((field) => Object.prototype.hasOwnProperty.call(requestBody, field))) {
+    return res.status(400).json({ error: "invalid_conversation_request" });
+  }
+
+  const result = await createOwnedConversation({
+    pool,
+    ownerUserId,
+    title: requestTitle,
+    id: requestBody.id,
+    conversationId: requestBody.conversationId,
+    conversation_id: requestBody.conversation_id,
+    conversation_uuid: requestBody.conversation_uuid,
+    owner_user_id: requestBody.owner_user_id,
+    userId: requestBody.userId,
+    user_id: requestBody.user_id,
+    clientOwnerUserId: requestBody.clientOwnerUserId,
+    clientConversationId: requestBody.clientConversationId,
+  });
+
+  if (!result.ok) {
+    return res.status(result.status).json({ error: result.error });
+  }
+
+  const conversation = result.conversation;
+  return res.status(201).json({
+    ok: true,
+    conversation: {
+      id: conversation.id,
+      owner_user_id: conversation.owner_user_id,
+      title: conversation.title,
+      created_at: conversation.created_at,
+    },
+  });
+});
+
 privateRoute("get", "/api/conversations", async (req, res) => {
   if (!pool) {
-    return res
-      .status(500)
-      .json({ error: "Database is not configured (no DATABASE_URL)." });
+    return res.status(503).json({ error: "conversation_service_unavailable" });
   }
 
-  const userId = String(req.query.user_id || req.query.userId || "").trim() || null;
-
-  try {
-    const result = await pool.query(
-      `
-      SELECT conversation_id, final_text, original_text, created_at_timestamp
-      FROM (
-        SELECT DISTINCT ON (conversation_id)
-          conversation_id,
-          final_text,
-          original_text,
-          created_at_timestamp
-        FROM messages
-        WHERE ($1::text IS NULL OR user_id = $1)
-        ORDER BY conversation_id, created_at_timestamp DESC
-      ) latest
-      ORDER BY created_at_timestamp DESC;
-      `,
-      [userId]
-    );
-
-    const conversations = (result.rows || []).map((row) => ({
-      conversation_id: row.conversation_id,
-      display_name: formatConversationDisplayName(row.conversation_id),
-      last_message_preview: shortPreview(row.final_text || row.original_text || "", 72),
-      last_message_at: row.created_at_timestamp,
-    }));
-
-    res.json({ ok: true, conversations });
-  } catch (err) {
-    console.error("[XL AI] /api/conversations DB error:", err);
-    res.status(500).json({ error: "Failed to load conversations" });
+  const ownerUserId = req && req.xlaiUser && req.xlaiUser.id ? req.xlaiUser.id : null;
+  if (!ownerUserId) {
+    return res.status(503).json({ error: "conversation_service_unavailable" });
   }
+
+  const result = await listOwnedConversations({ pool, ownerUserId });
+  if (!result.ok) {
+    return res.status(result.status).json({ error: result.error });
+  }
+
+  return res.json({ ok: true, conversations: result.conversations });
 });
 
 // 3) Fetch messages for EQ Log and Chats

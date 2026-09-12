@@ -4,6 +4,7 @@ const AUTHENTICATED_USER_ROUTES = Object.freeze([
   "POST /api/analyze-intensity",
   "POST /api/rephrase",
   "POST /api/send",
+  "POST /api/conversations",
   "POST /api/coach-interactions",
   "POST /api/journal-entries",
   "GET /api/journal-entries",

@@ -2135,29 +2135,28 @@ async function loadConversations() {
   };
 
   try {
-    let nextConversations = await fetchConversationRows(
-      `/api/conversations?user_id=${encodeURIComponent(currentUserId)}`
-    );
-
-    // temporary pre-auth compatibility fallback
-    if (nextConversations.length === 0) {
-      const fallbackConversations = await fetchConversationRows("/api/conversations");
-      if (fallbackConversations.length > 0) {
-        nextConversations = fallbackConversations;
-      }
-    }
-
+    const nextConversations = await fetchConversationRows("/api/conversations");
     conversations = nextConversations;
 
-    // Phase 7.5: Create default conversation if none exist (development fallback)
     if (conversations.length === 0) {
-      console.log("[XL AI] No conversations found, creating default dev conversation");
-      conversations = [{
-        conversation_id: "draft_chat",
-        display_name: "Draft Chat",
-        last_message_preview: "Your practice conversation",
-        last_message_at: Date.now()
-      }];
+      const created = await authenticatedFetch("/api/conversations", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title: "New conversation" }),
+      });
+
+      if (created.ok) {
+        const payload = await created.json();
+        const freshConversation = payload && payload.conversation ? payload.conversation : null;
+        if (freshConversation && freshConversation.id) {
+          conversations = [{
+            conversation_id: freshConversation.id,
+            display_name: freshConversation.title || "New conversation",
+            last_message_preview: "",
+            last_message_at: freshConversation.created_at || Date.now(),
+          }];
+        }
+      }
     }
 
     // Preserve selection only if still present in latest list.

@@ -1,6 +1,8 @@
 "use strict";
 
 const { spawn } = require("child_process");
+const fs = require("fs");
+const os = require("os");
 const path = require("path");
 const {
   validateAnalyzeIntensityResponse,
@@ -30,6 +32,7 @@ const ROOT = path.resolve(__dirname, "..", "..");
 const FAKE_ADMIN_SHIM = path.resolve(ROOT, "tests", "auth", "fake-firebase-admin-sdk.js");
 const FAKE_PG_SHIM = path.resolve(ROOT, "tests", "contracts", "fake-pg.js");
 const TEST_AUTH_HEADERS = { Authorization: "Bearer contract-test-token" };
+const FAKE_PG_TRACE_FILE = path.join(os.tmpdir(), `xlai-contract-pg-${process.pid}.jsonl`);
 
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -56,6 +59,7 @@ function startServer() {
     ...process.env,
     PORT: String(PORT),
     DATABASE_URL: "postgres://contract-test-only",
+    FAKE_PG_TRACE_FILE,
     NODE_OPTIONS: `${process.env.NODE_OPTIONS ? `${process.env.NODE_OPTIONS} ` : ""}--require ${FAKE_ADMIN_SHIM} --require ${FAKE_PG_SHIM}`,
   };
 
@@ -68,14 +72,19 @@ function startServer() {
   return child;
 }
 
-async function postJson(route, body, headers = {}) {
+async function postJson(route, body, headers = {}, options = {}) {
+  const requestHeaders = {
+    "Content-Type": "application/json",
+    ...TEST_AUTH_HEADERS,
+    ...headers,
+  };
+  if (options.authenticated === false) {
+    delete requestHeaders.Authorization;
+  }
+
   const res = await fetch(`${BASE_URL}${route}`, {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      ...TEST_AUTH_HEADERS,
-      ...headers,
-    },
+    headers: requestHeaders,
     body: JSON.stringify(body),
   });
 
@@ -87,6 +96,15 @@ async function postJson(route, body, headers = {}) {
   }
 
   return { status: res.status, payload };
+}
+
+function conversationInsertCount() {
+  if (!fs.existsSync(FAKE_PG_TRACE_FILE)) return 0;
+  return fs.readFileSync(FAKE_PG_TRACE_FILE, "utf8")
+    .split("\n")
+    .filter(Boolean)
+    .map((line) => JSON.parse(line))
+    .filter((event) => event.type === "conversation_insert").length;
 }
 
 async function getJson(route) {
@@ -128,7 +146,71 @@ async function run() {
   };
 
   try {
+    fs.rmSync(FAKE_PG_TRACE_FILE, { force: true });
     await waitForHealth();
+
+    await runCase("conversation route creates an authenticated owned conversation", async () => {
+      const before = conversationInsertCount();
+      const { status, payload } = await postJson("/api/conversations", { title: "Test conversation" });
+
+      assert(status === 201, `Expected 201 but got ${status}`);
+      assert(payload && payload.ok === true, "Expected successful conversation response");
+      assert(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(payload.conversation.id), "Expected server UUID");
+      assert(payload.conversation.owner_user_id === "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa", "Expected active internal owner");
+      assert(conversationInsertCount() === before + 1, "Expected exactly one conversation insert");
+    });
+
+    for (const [field, value] of [
+      ["id", "11111111-1111-4111-8111-111111111111"],
+      ["conversationId", "22222222-2222-4222-8222-222222222222"],
+      ["conversation_id", "33333333-3333-4333-8333-333333333333"],
+      ["conversation_uuid", "44444444-4444-4444-8444-444444444444"],
+      ["owner_user_id", "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb"],
+      ["ownerUserId", "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb"],
+    ]) {
+      await runCase(`conversation route rejects client field ${field}`, async () => {
+        const before = conversationInsertCount();
+        const { status, payload } = await postJson("/api/conversations", { [field]: value });
+
+        assert(status === 400, `${field}: expected 400 but got ${status}`);
+        assert(JSON.stringify(payload) === JSON.stringify({ error: "invalid_conversation_request" }), `${field}: expected sanitized invalid request`);
+        assert(conversationInsertCount() === before, `${field}: rejected request must not insert`);
+      });
+    }
+
+    for (const field of ["userId", "user_id"]) {
+      await runCase(`conversation route ignores legacy ${field}`, async () => {
+        const before = conversationInsertCount();
+        const { status, payload } = await postJson("/api/conversations", {
+          title: "Legacy identity test",
+          [field]: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+        });
+
+        assert(status === 201, `${field}: expected 201 but got ${status}`);
+        assert(payload.conversation.owner_user_id === "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa", `${field}: must not influence owner`);
+        assert(conversationInsertCount() === before + 1, `${field}: expected one conversation insert`);
+      });
+    }
+
+    await runCase("unauthenticated conversation creation is rejected before insertion", async () => {
+      const before = conversationInsertCount();
+      const { status, payload } = await postJson("/api/conversations", { title: "Unauthenticated" }, {}, { authenticated: false });
+
+      assert(status === 401, `Expected 401 but got ${status}`);
+      assert(JSON.stringify(payload) === JSON.stringify({ error: "unauthorized" }), "Expected sanitized unauthorized response");
+      assert(conversationInsertCount() === before, "Unauthenticated request must not insert");
+    });
+
+    for (const queryField of ["userId", "user_id"]) {
+      await runCase(`conversation list ignores legacy query ${queryField}`, async () => {
+        const { status, payload } = await getJson(`/api/conversations?${queryField}=bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb`);
+
+        assert(status === 200, `${queryField}: expected 200 but got ${status}`);
+        assert(payload && payload.ok === true, `${queryField}: expected successful list response`);
+        assert(payload.conversations.length >= 1, `${queryField}: expected authenticated owner conversations`);
+        assert(payload.conversations.every((conversation) => conversation.owner_user_id === "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"), `${queryField}: expected authenticated owner only`);
+      });
+    }
 
     await runCase("safety knowledge base exposes policy version", async () => {
       assert(typeof SAFETY_POLICY_VERSION === "string", "Expected SAFETY_POLICY_VERSION to be a string");
