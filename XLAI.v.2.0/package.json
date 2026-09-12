@@ -6,18 +6,18 @@
   "pg": "8.12.0",
   "author": "Fernando Lins",
   "license": "MIT",
- "scripts": {
+  "scripts": {
     "check:syntax": "node --check server.js && node --check engine/safetyKnowledgeBase.js && node --check engine/safetyDecisionEngine.js && node --check engine/safetyDecisionRuntime.js && node --check public/chat.js && node --check public/insights.js && node --check tests/contracts/response-contract.test.js",
-  "start": "node server.js",
-  "smoke": "BASE_URL=http://127.0.0.1:3000 bash ./script/smoke.sh",
-  "test:contracts": "node ./tests/contracts/response-contract.test.js"
+    "start": "node server.js",
+    "smoke": "BASE_URL=http://127.0.0.1:3000 bash ./script/smoke.sh",
+    "test:contracts": "node ./tests/contracts/response-contract.test.js"
   },
   "dependencies": {
     "cors": "^2.8.5",
     "dotenv": "^16.6.1",
     "express": "^4.19.2",
+    "firebase-admin": "^14.4.0",
     "openai": "^4.59.0",
     "pg": "^8.12.0"
   }
-  
 }
