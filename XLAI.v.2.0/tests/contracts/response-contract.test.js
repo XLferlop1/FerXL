@@ -28,6 +28,7 @@ const PORT = Number(process.env.CONTRACT_TEST_PORT || 3100);
 const BASE_URL = `http://127.0.0.1:${PORT}`;
 const ROOT = path.resolve(__dirname, "..", "..");
 const FAKE_ADMIN_SHIM = path.resolve(ROOT, "tests", "auth", "fake-firebase-admin-sdk.js");
+const FAKE_PG_SHIM = path.resolve(ROOT, "tests", "contracts", "fake-pg.js");
 const TEST_AUTH_HEADERS = { Authorization: "Bearer contract-test-token" };
 
 function sleep(ms) {
@@ -54,7 +55,8 @@ function startServer() {
   const env = {
     ...process.env,
     PORT: String(PORT),
-    NODE_OPTIONS: `${process.env.NODE_OPTIONS ? `${process.env.NODE_OPTIONS} ` : ""}--require ${FAKE_ADMIN_SHIM}`,
+    DATABASE_URL: "postgres://contract-test-only",
+    NODE_OPTIONS: `${process.env.NODE_OPTIONS ? `${process.env.NODE_OPTIONS} ` : ""}--require ${FAKE_ADMIN_SHIM} --require ${FAKE_PG_SHIM}`,
   };
 
   const child = spawn("node", ["server.js"], {
@@ -708,8 +710,8 @@ async function run() {
         );
       });
     } else {
-      results.push({ name: "send route contracts", status: "SKIP", note: "DATABASE_URL not configured" });
-      console.log("[contracts] SKIP send route contracts (DATABASE_URL not configured)");
+      results.push({ name: "send route contracts", status: "SKIP", note: "fake contract pool does not implement persistence queries" });
+      console.log("[contracts] SKIP send route contracts (fake contract pool does not implement persistence queries)");
     }
   } finally {
     if (!server.killed) {

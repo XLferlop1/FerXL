@@ -20,6 +20,7 @@ const { hardenContract } = require("./engine/responseContracts");
 const { getFirebaseAdminAuth } = require("./auth/firebaseAdmin");
 const { createFirebaseAuthMiddleware } = require("./auth/firebaseAuthMiddleware");
 const { createInternalDevGate } = require("./auth/internalDevGate");
+const { createInternalUserResolver } = require("./auth/internalUserResolver");
 const { isInternalDevRoute, isPrivateApiRoute } = require("./auth/privateRoutes");
 const { runOwnershipMigrations } = require("./db/migrations");
 
@@ -57,20 +58,21 @@ app.use(express.json());
 app.use(express.static(path.join(__dirname, "public")));
 
 const firebaseAuthMiddleware = createFirebaseAuthMiddleware({ getAuth: getFirebaseAdminAuth });
+const internalUserResolver = createInternalUserResolver({ getPool: () => pool });
 const internalDevGate = createInternalDevGate();
 
 function privateRoute(method, route, handler) {
   if (!isPrivateApiRoute(method, route) || isInternalDevRoute(method, route)) {
     throw new Error(`Private route is missing from the P0-A4 route registry: ${method.toUpperCase()} ${route}`);
   }
-  return app[method](route, firebaseAuthMiddleware, handler);
+  return app[method](route, firebaseAuthMiddleware, internalUserResolver, handler);
 }
 
 function internalRoute(method, route, handler) {
   if (!isInternalDevRoute(method, route)) {
     throw new Error(`Internal route is missing from the P0-A4 route registry: ${method.toUpperCase()} ${route}`);
   }
-  return app[method](route, firebaseAuthMiddleware, internalDevGate, handler);
+  return app[method](route, firebaseAuthMiddleware, internalUserResolver, internalDevGate, handler);
 }
 
 // Serve main chat UI
