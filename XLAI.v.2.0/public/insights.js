@@ -205,11 +205,11 @@
 
   try {
     const [patternRes, behaviorRes, historyRes, coachRes, timelineRes] = await Promise.all([
-      fetch(`/api/pattern-summary?conversation=${encodeURIComponent(conversationId)}&userId=${encodeURIComponent(userId)}`),
-      fetch(`/api/behavior-feedback?conversation=${encodeURIComponent(conversationId)}&userId=${encodeURIComponent(userId)}`),
-      fetch(`/api/messages?conversation=${encodeURIComponent(conversationId)}&userId=${encodeURIComponent(userId)}`),
-      fetch(`/api/coach-interactions?conversation=${encodeURIComponent(conversationId)}&userId=${encodeURIComponent(userId)}`),
-      fetch(`/api/interaction-timeline?conversation=${encodeURIComponent(conversationId)}&userId=${encodeURIComponent(userId)}&limit=120`),
+      authenticatedFetch(`/api/pattern-summary?conversation=${encodeURIComponent(conversationId)}&userId=${encodeURIComponent(userId)}`),
+      authenticatedFetch(`/api/behavior-feedback?conversation=${encodeURIComponent(conversationId)}&userId=${encodeURIComponent(userId)}`),
+      authenticatedFetch(`/api/messages?conversation=${encodeURIComponent(conversationId)}&userId=${encodeURIComponent(userId)}`),
+      authenticatedFetch(`/api/coach-interactions?conversation=${encodeURIComponent(conversationId)}&userId=${encodeURIComponent(userId)}`),
+      authenticatedFetch(`/api/interaction-timeline?conversation=${encodeURIComponent(conversationId)}&userId=${encodeURIComponent(userId)}&limit=120`),
     ]);
 
     const patternData = patternRes.ok ? await patternRes.json() : {};

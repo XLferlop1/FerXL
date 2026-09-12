@@ -27,6 +27,8 @@ const { buildSafetyDecisionSafe } = require("../../engine/safetyDecisionRuntime"
 const PORT = Number(process.env.CONTRACT_TEST_PORT || 3100);
 const BASE_URL = `http://127.0.0.1:${PORT}`;
 const ROOT = path.resolve(__dirname, "..", "..");
+const FAKE_ADMIN_SHIM = path.resolve(ROOT, "tests", "auth", "fake-firebase-admin-sdk.js");
+const TEST_AUTH_HEADERS = { Authorization: "Bearer contract-test-token" };
 
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -52,6 +54,7 @@ function startServer() {
   const env = {
     ...process.env,
     PORT: String(PORT),
+    NODE_OPTIONS: `${process.env.NODE_OPTIONS ? `${process.env.NODE_OPTIONS} ` : ""}--require ${FAKE_ADMIN_SHIM}`,
   };
 
   const child = spawn("node", ["server.js"], {
@@ -68,6 +71,7 @@ async function postJson(route, body, headers = {}) {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
+      ...TEST_AUTH_HEADERS,
       ...headers,
     },
     body: JSON.stringify(body),
@@ -84,7 +88,7 @@ async function postJson(route, body, headers = {}) {
 }
 
 async function getJson(route) {
-  const res = await fetch(`${BASE_URL}${route}`);
+  const res = await fetch(`${BASE_URL}${route}`, { headers: TEST_AUTH_HEADERS });
   let payload = null;
   try {
     payload = await res.json();
@@ -508,7 +512,7 @@ async function run() {
 
     let dbConnected = false;
     try {
-      const dbRes = await fetch(`${BASE_URL}/api/db-health`);
+      const dbRes = await fetch(`${BASE_URL}/api/db-health`, { headers: TEST_AUTH_HEADERS });
       const dbPayload = await dbRes.json();
       dbConnected = !!(dbPayload && dbPayload.connected === true);
     } catch (error) {

@@ -40,6 +40,12 @@
   }
 
   globalScope.createFirebaseAuthClient = createFirebaseAuthClient;
+  globalScope.authenticatedFetch = (url, options = {}) => {
+    if (globalScope.xlaiAuth && typeof globalScope.xlaiAuth.authenticatedFetch === "function") {
+      return globalScope.xlaiAuth.authenticatedFetch(url, options);
+    }
+    return createFirebaseAuthClient().authenticatedFetch(url, options);
+  };
 
   if (typeof module !== "undefined" && module.exports) {
     module.exports = { createFirebaseAuthClient };

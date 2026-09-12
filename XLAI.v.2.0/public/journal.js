@@ -101,7 +101,7 @@
     entriesListEl.innerHTML = "<p class=\"xl-subtitle\">Loading entries...</p>";
 
     try {
-      const res = await fetch(`/api/journal-entries?conversation=${encodeURIComponent(conversationId)}&limit=50`);
+      const res = await authenticatedFetch(`/api/journal-entries?conversation=${encodeURIComponent(conversationId)}&limit=50`);
       const data = await res.json();
       renderEntries(data.entries || []);
     } catch (err) {
@@ -125,7 +125,7 @@
     if (statusEl) statusEl.textContent = "";
 
     try {
-      const res = await fetch("/api/journal-entries", {
+      const res = await authenticatedFetch("/api/journal-entries", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

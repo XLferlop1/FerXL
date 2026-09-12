@@ -17,6 +17,10 @@ const {
   runPrivacyCleanupSafe,
 } = require("./engine/privacyEngine");
 const { hardenContract } = require("./engine/responseContracts");
+const { getFirebaseAdminAuth } = require("./auth/firebaseAdmin");
+const { createFirebaseAuthMiddleware } = require("./auth/firebaseAuthMiddleware");
+const { createInternalDevGate } = require("./auth/internalDevGate");
+const { isInternalDevRoute, isPrivateApiRoute } = require("./auth/privateRoutes");
 
 // Load environment variables (.env)
 dotenv.config();
@@ -50,6 +54,23 @@ app.use(express.json());
 
 // Serve static files from /public
 app.use(express.static(path.join(__dirname, "public")));
+
+const firebaseAuthMiddleware = createFirebaseAuthMiddleware({ getAuth: getFirebaseAdminAuth });
+const internalDevGate = createInternalDevGate();
+
+function privateRoute(method, route, handler) {
+  if (!isPrivateApiRoute(method, route) || isInternalDevRoute(method, route)) {
+    throw new Error(`Private route is missing from the P0-A4 route registry: ${method.toUpperCase()} ${route}`);
+  }
+  return app[method](route, firebaseAuthMiddleware, handler);
+}
+
+function internalRoute(method, route, handler) {
+  if (!isInternalDevRoute(method, route)) {
+    throw new Error(`Internal route is missing from the P0-A4 route registry: ${method.toUpperCase()} ${route}`);
+  }
+  return app[method](route, firebaseAuthMiddleware, internalDevGate, handler);
+}
 
 // Serve main chat UI
 app.get("/", (req, res) => {
@@ -598,7 +619,7 @@ Rules:
 
 
 // 🔹 1) Analyze intensity + get XL AI rephrase suggestion
-app.post("/api/analyze-intensity", async (req, res) => {
+privateRoute("post", "/api/analyze-intensity", async (req, res) => {
   const { text, draft, tone, emotion, rewriteStrength, coachMode, userId, context } = req.body || {};
   const contextEnvelope = buildContextEnvelope({
     route: req.path,
@@ -948,7 +969,7 @@ Return ONLY valid JSON in this exact shape:
 
 // Optional lightweight rewrite for Smart Compose refine action
 // Phase 6: AI Refine / Coach Escalation Upgrade
-app.post("/api/rephrase", async (req, res) => {
+privateRoute("post", "/api/rephrase", async (req, res) => {
   const {
     text,
     tone,
@@ -1121,7 +1142,7 @@ app.post("/api/rephrase", async (req, res) => {
 });
 
 // Optional: tiny DB health endpoint for quick checks
-app.get("/api/db-health", async (req, res) => {
+internalRoute("get", "/api/db-health", async (req, res) => {
   if (!pool) {
     return res.json({ connected: false, latest: null });
   }
@@ -1138,11 +1159,11 @@ app.get("/api/db-health", async (req, res) => {
   }
 });
 
-app.get("/api/privacy-status", (req, res) => {
+internalRoute("get", "/api/privacy-status", (req, res) => {
   return res.json(getPrivacyStatus());
 });
 
-app.post("/api/privacy-cleanup", async (req, res) => {
+internalRoute("post", "/api/privacy-cleanup", async (req, res) => {
   const isBetaDebug = process.env.NODE_ENV !== "production";
   if (!isBetaDebug) {
     return res.status(404).json({ error: "Not found" });
@@ -1162,7 +1183,7 @@ app.post("/api/privacy-cleanup", async (req, res) => {
 
 // 🔹 2) Store final message in Neon (EQ log)
 // 2) Save a message into Neon + return saved row id & timestamp
-app.post("/api/send", async (req, res) => {
+privateRoute("post", "/api/send", async (req, res) => {
   if (!pool) {
     return res.status(500).json({ error: "Database is not configured (no DATABASE_URL)" });
   }
@@ -1302,7 +1323,7 @@ try {
 });
 
 // 🔹 2b) Store coach interaction for Insights
-app.post("/api/coach-interactions", async (req, res) => {
+privateRoute("post", "/api/coach-interactions", async (req, res) => {
   if (!pool) {
     return res.status(500).json({ error: "Database is not configured (no DATABASE_URL)" });
   }
@@ -1401,7 +1422,7 @@ app.post("/api/coach-interactions", async (req, res) => {
 });
 
 // 🔹 2c) Journal entry create + reflection analyzer
-app.post("/api/journal-entries", async (req, res) => {
+privateRoute("post", "/api/journal-entries", async (req, res) => {
   if (!pool) {
     return res.status(500).json({ error: "Database is not configured (no DATABASE_URL)" });
   }
@@ -1465,7 +1486,7 @@ app.post("/api/journal-entries", async (req, res) => {
 });
 
 // 🔹 2d) Journal entry list
-app.get("/api/journal-entries", async (req, res) => {
+privateRoute("get", "/api/journal-entries", async (req, res) => {
   if (!pool) {
     return res.status(500).json({ error: "Database is not configured (no DATABASE_URL)." });
   }
@@ -1504,7 +1525,7 @@ app.get("/api/journal-entries", async (req, res) => {
 });
 
 // 🔹 3) History for chat + EQ log sidebar
-app.get("/api/history", async (req, res) => {
+privateRoute("get", "/api/history", async (req, res) => {
   if (!pool) {
     return res
       .status(500)
@@ -1548,7 +1569,7 @@ app.get("/api/history", async (req, res) => {
 });
 
 // 🔹 4) Behavior feedback for the right-hand EQ coach
-app.get("/api/behavior-feedback", async (req, res) => {
+privateRoute("get", "/api/behavior-feedback", async (req, res) => {
   if (!pool) {
     return res
       .status(500)
@@ -1624,7 +1645,7 @@ app.get("/api/behavior-feedback", async (req, res) => {
 });
 
 // 3) Fetch conversation list for Chats
-app.get("/api/conversations", async (req, res) => {
+privateRoute("get", "/api/conversations", async (req, res) => {
   if (!pool) {
     return res
       .status(500)
@@ -1667,7 +1688,7 @@ app.get("/api/conversations", async (req, res) => {
 });
 
 // 3) Fetch messages for EQ Log and Chats
-app.get("/api/messages", async (req, res) => {
+privateRoute("get", "/api/messages", async (req, res) => {
   if (!pool) {
     return res
       .status(500)
@@ -1715,7 +1736,7 @@ app.get("/api/messages", async (req, res) => {
 });
 
 // 3b) Persist chat messages for the real Chats surface
-app.post("/api/messages", async (req, res) => {
+privateRoute("post", "/api/messages", async (req, res) => {
   if (!pool) {
     return res.status(500).json({ error: "Database is not configured (no DATABASE_URL)" });
   }
@@ -1773,7 +1794,7 @@ app.post("/api/messages", async (req, res) => {
 });
 
 // 🔹 4b) Fetch coach interaction history for Insights
-app.get("/api/coach-interactions", async (req, res) => {
+privateRoute("get", "/api/coach-interactions", async (req, res) => {
   if (!pool) {
     return res
       .status(500)
@@ -1842,7 +1863,7 @@ app.get("/api/coach-interactions", async (req, res) => {
 });
 
 // 🔹 4c) Unified timeline: messages + coach interactions
-app.get("/api/interaction-timeline", async (req, res) => {
+privateRoute("get", "/api/interaction-timeline", async (req, res) => {
   if (!pool) {
     return res
       .status(500)
@@ -1950,7 +1971,7 @@ app.get("/api/interaction-timeline", async (req, res) => {
 });
 
 // 🔹 4d) Pattern summary for Insights
-app.get("/api/pattern-summary", async (req, res) => {
+privateRoute("get", "/api/pattern-summary", async (req, res) => {
   const conversationId = req.query.conversation || DEFAULT_CONVERSATION_ID;
 
   try {

@@ -9,7 +9,7 @@
 
   async function loadMessages() {
     try {
-      const res = await fetch(`/api/messages?conversation=${encodeURIComponent(conversationId)}`);
+      const res = await authenticatedFetch(`/api/messages?conversation=${encodeURIComponent(conversationId)}`);
       if (!res.ok) {
         throw new Error("Status " + res.status);
       }

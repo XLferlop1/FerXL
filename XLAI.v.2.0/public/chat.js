@@ -22,10 +22,15 @@ async function authenticatedFetch(url, options = {}) {
   if (window.xlaiAuth && typeof window.xlaiAuth.authenticatedFetch === "function") {
     return window.xlaiAuth.authenticatedFetch(url, options);
   }
-  if (!authClient) {
-    return fetch(url, options);
+  if (window.authenticatedFetch && window.authenticatedFetch !== authenticatedFetch) {
+    return window.authenticatedFetch(url, options);
   }
-  return authClient.authenticatedFetch(url, options);
+  if (authClient) {
+    return authClient.authenticatedFetch(url, options);
+  }
+  const error = new Error("Authentication required. Please sign in with Google.");
+  error.code = "authentication_required";
+  throw error;
 }
 
 function updateAuthButtonState(state = {}) {
