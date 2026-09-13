@@ -14,6 +14,15 @@ class FakePool {
     this.conversations = [];
     this.messages = [];
     this.nextMessageId = 1;
+    this.journalEntries = [{
+      id: 900,
+      owner_user_id: null,
+      conversation_id: "null-owner-context",
+      user_id: "legacy-user-a",
+      entry_text: "Legacy unowned entry",
+      created_at_timestamp: "2026-09-12T00:00:00.000Z",
+    }];
+    this.nextJournalId = 1;
   }
 
   record(event) {
@@ -22,6 +31,10 @@ class FakePool {
   }
 
   async query(sql, params = []) {
+    if (process.env.FAKE_PG_JOURNAL_FAILURE === "1" && /journal_entries/i.test(sql)) {
+      throw new Error("fake journal database outage");
+    }
+
     if (/INSERT INTO internal_users/i.test(sql)) {
       return { rows: [ACTIVE_USER], rowCount: 1 };
     }
@@ -46,6 +59,35 @@ class FakePool {
       this.conversations.push(conversation);
       this.record({ type: "conversation_insert", conversation });
       return { rows: [conversation], rowCount: 1 };
+    }
+
+    if (/INSERT INTO journal_entries/i.test(sql)) {
+      const entry = {
+        id: this.nextJournalId++,
+        owner_user_id: params[0],
+        conversation_id: params[1],
+        user_id: null,
+        entry_text: params[2],
+        retain_until_timestamp: params[3],
+        mood: params[4],
+        main_emotion: params[5],
+        possible_trigger: params[6],
+        communication_pattern: params[7],
+        reflection_takeaway: params[8],
+        suggested_next_step: params[9],
+        created_at_timestamp: "2026-09-12T00:00:00.000Z",
+      };
+      this.journalEntries.push(entry);
+      this.record({ type: "journal_insert", entry });
+      return { rows: [entry], rowCount: 1 };
+    }
+
+    if (/FROM journal_entries/i.test(sql) && /WHERE owner_user_id = \$1/i.test(sql)) {
+      const owner = params[0];
+      const conversationId = params[1];
+      const rows = this.journalEntries.filter((entry) => entry.owner_user_id === owner
+        && (!conversationId || entry.conversation_id === conversationId));
+      return { rows, rowCount: rows.length };
     }
 
     if (/FROM conversations/i.test(sql) && /WHERE id = \$1/i.test(sql)) {

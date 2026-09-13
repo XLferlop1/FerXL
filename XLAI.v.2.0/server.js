@@ -30,6 +30,10 @@ const {
   readOwnedMessages,
   insertOwnedMessage,
 } = require("./auth/conversationOwnership");
+const {
+  createOwnedJournalEntry,
+  listOwnedJournalEntries,
+} = require("./auth/journalOwnership");
 
 // Load environment variables (.env)
 dotenv.config();
@@ -1332,7 +1336,14 @@ privateRoute("post", "/api/journal-entries", async (req, res) => {
     return res.status(500).json({ error: "Database is not configured (no DATABASE_URL)" });
   }
 
-  const { conversationId, userId, entryText, mood, retainUntil } = req.body || {};
+  const requestBody = req.body || {};
+  if (Object.prototype.hasOwnProperty.call(requestBody, "owner_user_id")
+    || Object.prototype.hasOwnProperty.call(requestBody, "ownerUserId")) {
+    return res.status(400).json({ error: "invalid_journal_request" });
+  }
+
+  const { conversationId, entryText, mood, retainUntil } = requestBody;
+  const ownerUserId = req && req.xlaiUser && req.xlaiUser.id ? req.xlaiUser.id : null;
   const text = String(entryText || "").trim();
   if (!text) {
     return res.status(400).json({ error: "Missing entryText" });
@@ -1352,38 +1363,21 @@ privateRoute("post", "/api/journal-entries", async (req, res) => {
   try {
     const reflection = await analyzeJournalEntry(text, mood);
 
-    const result = await pool.query(
-      `
-      INSERT INTO journal_entries (
-        conversation_id,
-        user_id,
-        entry_text,
-        retain_until_timestamp,
-        mood,
-        main_emotion,
-        possible_trigger,
-        communication_pattern,
-        reflection_takeaway,
-        suggested_next_step
-      )
-      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
-      RETURNING *;
-      `,
-      [
-        conversationId || null,
-        userId || null,
-        text,
-        retainUntilTimestamp,
-        mood || null,
-        reflection.main_emotion,
-        reflection.possible_trigger,
-        reflection.communication_pattern,
-        reflection.reflection_takeaway,
-        reflection.suggested_next_step,
-      ]
-    );
+    const result = await createOwnedJournalEntry({
+      pool,
+      ownerUserId,
+      conversationId,
+      entryText: text,
+      retainUntilTimestamp,
+      mood,
+      reflection,
+    });
 
-    return res.json({ ok: true, entry: result.rows[0] });
+    if (!result.ok) {
+      return res.status(result.status).json({ error: result.error });
+    }
+
+    return res.status(201).json({ ok: true, entry: result.entry });
   } catch (err) {
     console.error("[XL AI] /api/journal-entries insert error:", err);
     return res.status(500).json({ error: "Failed to save journal entry" });
@@ -1396,37 +1390,16 @@ privateRoute("get", "/api/journal-entries", async (req, res) => {
     return res.status(500).json({ error: "Database is not configured (no DATABASE_URL)." });
   }
 
-  const conversationId = req.query.conversation || DEFAULT_CONVERSATION_ID;
+  const ownerUserId = req && req.xlaiUser && req.xlaiUser.id ? req.xlaiUser.id : null;
+  const conversationId = req.query.conversation || null;
   const limit = Math.min(Number(req.query.limit) || 50, 200);
 
-  try {
-    const result = await pool.query(
-      `
-      SELECT
-        id,
-        conversation_id,
-        user_id,
-        entry_text,
-        mood,
-        main_emotion,
-        possible_trigger,
-        communication_pattern,
-        reflection_takeaway,
-        suggested_next_step,
-        created_at_timestamp
-      FROM journal_entries
-      WHERE conversation_id = $1
-      ORDER BY created_at_timestamp DESC
-      LIMIT $2;
-      `,
-      [conversationId, limit]
-    );
-
-    return res.json({ ok: true, entries: result.rows });
-  } catch (err) {
-    console.error("[XL AI] /api/journal-entries read error:", err);
-    return res.status(500).json({ error: "Failed to load journal entries" });
+  const result = await listOwnedJournalEntries({ pool, ownerUserId, conversationId, limit });
+  if (!result.ok) {
+    return res.status(result.status).json({ error: result.error });
   }
+
+  return res.json({ ok: true, entries: result.entries });
 });
 
 // 🔹 3) History for chat + EQ log sidebar

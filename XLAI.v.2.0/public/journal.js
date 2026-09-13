@@ -3,7 +3,6 @@
 (function () {
   const betaConfig = window.XL_BETA_CONFIG || {};
   const conversationId = betaConfig.defaultConversationId || "default";
-  const userId = betaConfig.userId || "beta_default_user";
 
   const entryInput = document.getElementById("journalEntryInput");
   const moodSelect = document.getElementById("journalMood");
@@ -13,11 +12,6 @@
   const entriesListEl = document.getElementById("journalEntriesList");
   const latestAnalysisCard = document.getElementById("journalLatestAnalysis");
   const latestAnalysisContent = document.getElementById("journalAnalysisContent");
-  const journalUserBadge = document.getElementById("journalUserBadge");
-
-  if (journalUserBadge) {
-    journalUserBadge.textContent = `User: ${userId}`;
-  }
 
   function escapeHtml(value) {
     return String(value || "")
@@ -130,7 +124,6 @@
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           conversationId,
-          userId,
           entryText,
           mood,
         }),

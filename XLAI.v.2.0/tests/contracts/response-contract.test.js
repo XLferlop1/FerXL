@@ -38,10 +38,10 @@ function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-async function waitForHealth(maxAttempts = 80) {
+async function waitForHealth(baseUrl = BASE_URL, maxAttempts = 80) {
   for (let i = 0; i < maxAttempts; i += 1) {
     try {
-      const res = await fetch(`${BASE_URL}/health`);
+      const res = await fetch(`${baseUrl}/health`);
       const text = await res.text();
       if (res.ok && text.trim() === "healthy") {
         return;
@@ -54,12 +54,13 @@ async function waitForHealth(maxAttempts = 80) {
   throw new Error("Server did not become healthy in time.");
 }
 
-function startServer() {
+function startServer(port = PORT, options = {}) {
   const env = {
     ...process.env,
-    PORT: String(PORT),
+    PORT: String(port),
     DATABASE_URL: "postgres://contract-test-only",
     FAKE_PG_TRACE_FILE,
+    ...(options.journalDbFailure ? { FAKE_PG_JOURNAL_FAILURE: "1" } : {}),
     NODE_OPTIONS: `${process.env.NODE_OPTIONS ? `${process.env.NODE_OPTIONS} ` : ""}--require ${FAKE_ADMIN_SHIM} --require ${FAKE_PG_SHIM}`,
   };
 
@@ -70,6 +71,29 @@ function startServer() {
   });
 
   return child;
+}
+
+async function requestJournalDbFailure() {
+  const port = PORT + 1;
+  const baseUrl = `http://127.0.0.1:${port}`;
+  const child = startServer(port, { journalDbFailure: true });
+  try {
+    await waitForHealth(baseUrl);
+    const responses = await Promise.all([
+      fetch(`${baseUrl}/api/journal-entries`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", ...TEST_AUTH_HEADERS },
+        body: JSON.stringify({ entryText: "Database failure" }),
+      }),
+      fetch(`${baseUrl}/api/journal-entries`, { headers: TEST_AUTH_HEADERS }),
+    ]);
+    return Promise.all(responses.map(async (response) => ({
+      status: response.status,
+      payload: await response.json(),
+    })));
+  } finally {
+    if (!child.killed) child.kill("SIGTERM");
+  }
 }
 
 async function postJson(route, body, headers = {}, options = {}) {
@@ -116,6 +140,15 @@ function messageInsertCount() {
     .filter((event) => event.type === "message_insert").length;
 }
 
+function journalInsertCount() {
+  if (!fs.existsSync(FAKE_PG_TRACE_FILE)) return 0;
+  return fs.readFileSync(FAKE_PG_TRACE_FILE, "utf8")
+    .split("\n")
+    .filter(Boolean)
+    .map((line) => JSON.parse(line))
+    .filter((event) => event.type === "journal_insert").length;
+}
+
 async function getJson(route) {
   const res = await fetch(`${BASE_URL}${route}`, { headers: TEST_AUTH_HEADERS });
   let payload = null;
@@ -159,6 +192,88 @@ async function run() {
     await waitForHealth();
 
     let ownedConversationId = null;
+
+    await runCase("journal creation assigns the authenticated owner", async () => {
+      const before = journalInsertCount();
+      const result = await postJson("/api/journal-entries", {
+        conversationId: "journal-context-a",
+        userId: "client-user-b",
+        entryText: "Private journal entry",
+        mood: "calm",
+      });
+
+      assert(result.status === 201, `Expected 201 but got ${result.status}`);
+      assert(result.payload && result.payload.ok === true, "Expected successful journal creation");
+      assert(result.payload.entry.owner_user_id === "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa", "Expected authenticated owner");
+      assert(result.payload.entry.user_id === null, "Expected legacy user_id to remain null");
+      assert(journalInsertCount() === before + 1, "Expected one journal insert");
+    });
+
+    await runCase("journal creation ignores legacy user_id identity", async () => {
+      const result = await postJson("/api/journal-entries", {
+        user_id: "client-user-b",
+        entryText: "Legacy identity journal entry",
+      });
+
+      assert(result.status === 201, `Expected 201 but got ${result.status}`);
+      assert(result.payload.entry.owner_user_id === "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa", "Expected authenticated owner");
+      assert(result.payload.entry.user_id === null, "Expected legacy user_id to remain null");
+    });
+
+    for (const field of ["owner_user_id", "ownerUserId"]) {
+      await runCase(`journal creation rejects client field ${field}`, async () => {
+        const before = journalInsertCount();
+        const result = await postJson("/api/journal-entries", { [field]: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb", entryText: "Rejected owner" });
+
+        assert(result.status === 400, `${field}: expected 400 but got ${result.status}`);
+        assert(JSON.stringify(result.payload) === JSON.stringify({ error: "invalid_journal_request" }), `${field}: expected sanitized request error`);
+        assert(journalInsertCount() === before, `${field}: expected zero journal inserts`);
+      });
+    }
+
+    await runCase("owned journal list returns only authenticated owner rows", async () => {
+      const result = await getJson("/api/journal-entries");
+      assert(result.status === 200, `Expected 200 but got ${result.status}`);
+      assert(result.payload && result.payload.ok === true, "Expected successful journal list");
+      assert(result.payload.entries.length === 2, "Expected two authenticated-owner entries");
+      assert(result.payload.entries.every((entry) => entry.owner_user_id === "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"), "Expected owner-scoped rows");
+    });
+
+    await runCase("journal conversation filter narrows authenticated owner rows", async () => {
+      const result = await getJson("/api/journal-entries?conversation=journal-context-a");
+      assert(result.status === 200, `Expected 200 but got ${result.status}`);
+      assert(result.payload.entries.length === 1, "Expected one matching context row");
+      assert(result.payload.entries[0].owner_user_id === "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa", "Expected authenticated owner row");
+    });
+
+    await runCase("journal NULL-owner fixture is excluded", async () => {
+      const result = await getJson("/api/journal-entries?conversation=null-owner-context");
+      assert(result.status === 200, `Expected 200 but got ${result.status}`);
+      assert(result.payload.entries.length === 0, "Expected NULL-owner rows to remain inaccessible");
+    });
+
+    await runCase("unauthenticated journal creation is rejected", async () => {
+      const before = journalInsertCount();
+      const result = await postJson("/api/journal-entries", { entryText: "Unauthenticated" }, {}, { authenticated: false });
+      assert(result.status === 401, `Expected 401 but got ${result.status}`);
+      assert(JSON.stringify(result.payload) === JSON.stringify({ error: "unauthorized" }), "Expected sanitized unauthorized response");
+      assert(journalInsertCount() === before, "Expected zero journal inserts");
+    });
+
+    await runCase("unauthenticated journal list is rejected", async () => {
+      const res = await fetch(`${BASE_URL}/api/journal-entries`);
+      const payload = await res.json();
+      assert(res.status === 401, `Expected 401 but got ${res.status}`);
+      assert(JSON.stringify(payload) === JSON.stringify({ error: "unauthorized" }), "Expected sanitized unauthorized response");
+    });
+
+    await runCase("journal database failures return sanitized 503 responses", async () => {
+      const [createFailure, listFailure] = await requestJournalDbFailure();
+      assert(createFailure.status === 503, `Expected journal create 503 but got ${createFailure.status}`);
+      assert(listFailure.status === 503, `Expected journal list 503 but got ${listFailure.status}`);
+      assert(JSON.stringify(createFailure.payload) === JSON.stringify({ error: "journal_service_unavailable" }), "Expected sanitized create failure");
+      assert(JSON.stringify(listFailure.payload) === JSON.stringify({ error: "journal_service_unavailable" }), "Expected sanitized list failure");
+    });
 
     await runCase("conversation route creates an authenticated owned conversation", async () => {
       const before = conversationInsertCount();
