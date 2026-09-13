@@ -3029,12 +3029,20 @@ async function askCoach(rawText, draftText = "") {
     renderCoachResponse(analysis, coaching, communication);
 
     try {
+      const canonicalConversationUuid = typeof currentConversationId === "string"
+        && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(currentConversationId.trim())
+        ? currentConversationId.trim()
+        : null;
+      if (!canonicalConversationUuid) {
+        console.warn("[XL AI] Skipping coach persistence without a server conversation UUID");
+        return;
+      }
+
       await authenticatedFetch("/api/coach-interactions", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          conversationId: currentConversationId,
-          userId: currentUserId,
+          conversationId: canonicalConversationUuid,
           coachQuestionText: text,
           coachResponseText: coaching.natural_response || coaching.response || coaching.note || coaching.insight || coaching.suggestion || coaching.rewrite || coachThreadSummary,
           intentGuess: analysis.intent_guess || null,

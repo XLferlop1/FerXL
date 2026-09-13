@@ -34,6 +34,10 @@ const {
   createOwnedJournalEntry,
   listOwnedJournalEntries,
 } = require("./auth/journalOwnership");
+const {
+  createOwnedCoachInteraction,
+  listOwnedCoachInteractions,
+} = require("./auth/coachOwnership");
 
 // Load environment variables (.env)
 dotenv.config();
@@ -1237,9 +1241,14 @@ privateRoute("post", "/api/coach-interactions", async (req, res) => {
     return res.status(500).json({ error: "Database is not configured (no DATABASE_URL)" });
   }
 
+  const requestBody = req.body || {};
+  if (Object.prototype.hasOwnProperty.call(requestBody, "owner_user_id")
+    || Object.prototype.hasOwnProperty.call(requestBody, "ownerUserId")) {
+    return res.status(400).json({ error: "invalid_coach_request" });
+  }
+
   const {
     conversationId,
-    userId,
     coachQuestionText,
     coachResponseText,
     intentGuess,
@@ -1252,7 +1261,9 @@ privateRoute("post", "/api/coach-interactions", async (req, res) => {
     risks,
     coachMode,
     communication,
-  } = req.body || {};
+  } = requestBody;
+
+  const ownerUserId = req && req.xlaiUser && req.xlaiUser.id ? req.xlaiUser.id : null;
 
   if (!coachQuestionText || !coachQuestionText.trim()) {
     return res.status(400).json({ error: "Missing coachQuestionText" });
@@ -1263,67 +1274,30 @@ privateRoute("post", "/api/coach-interactions", async (req, res) => {
   triggerPrivacyCleanup("api_coach_interactions", { minIntervalMs: 5 * 60 * 1000 });
 
   try {
-    const result = await pool.query(
-      `
-      INSERT INTO coach_interactions (
-        conversation_id,
-        user_id,
-        coach_question_text,
-        coach_response_text,
-        intent_guess,
-        intent_type,
-        rewrite_text,
-        insight_text,
-        principle_text,
-        intensity_score,
-        intensity_label,
-        risks,
-        coach_mode,
-        communication_intent_label,
-        communication_intent_confidence,
-        communication_emotion_primary,
-        communication_emotion_intensity,
-        communication_relationship_type,
-        communication_relationship_confidence,
-        communication_recipient_reaction,
-        communication_strategy_mode,
-        communication_strategy_approach,
-        communication_risks,
-        communication_max_risk_severity
-      )
-      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24)
-      RETURNING id, created_at_timestamp;
-      `,
-      [
-        conversationId || null,
-        userId || null,
-        coachQuestionText.trim(),
-        coachResponseText || null,
-        intentGuess || null,
-        intentType || null,
-        rewriteText || null,
-        insightText || null,
-        principleText || null,
-        typeof intensityScore === "number" ? intensityScore : null,
-        intensityLabel || null,
-        Array.isArray(risks) ? risks : null,
-        coachMode || null,
-        communicationFields.communicationIntentLabel || null,
-        typeof communicationFields.communicationIntentConfidence === "number" ? communicationFields.communicationIntentConfidence : null,
-        communicationFields.communicationEmotionPrimary || null,
-        typeof communicationFields.communicationEmotionIntensity === "number" ? communicationFields.communicationEmotionIntensity : null,
-        communicationFields.communicationRelationshipType || null,
-        typeof communicationFields.communicationRelationshipConfidence === "number" ? communicationFields.communicationRelationshipConfidence : null,
-        communicationFields.communicationRecipientReaction || null,
-        communicationFields.communicationStrategyMode || null,
-        communicationFields.communicationStrategyApproach || null,
-        Array.isArray(communicationFields.communicationRisks) ? communicationFields.communicationRisks : null,
-        typeof communicationFields.communicationMaxRiskSeverity === "number" ? communicationFields.communicationMaxRiskSeverity : null,
-      ]
-    );
+    const result = await createOwnedCoachInteraction({
+      pool,
+      ownerUserId,
+      conversationUuid: conversationId,
+      coachQuestionText,
+      coachResponseText,
+      intentGuess,
+      intentType,
+      rewriteText,
+      insightText,
+      principleText,
+      intensityScore,
+      intensityLabel,
+      risks,
+      coachMode,
+      communicationFields,
+    });
 
-    const row = result.rows[0];
-    res.json({ ok: true, id: row.id, created_at: row.created_at_timestamp });
+    if (!result.ok) {
+      return res.status(result.status).json({ error: result.error });
+    }
+
+    const row = result.interaction;
+    return res.status(201).json({ ok: true, id: row.id, created_at: row.created_at_timestamp });
   } catch (err) {
     console.error("[XL AI] /api/coach-interactions insert error:", err);
     res.status(500).json({ error: "Failed to save coach interaction" });
@@ -1669,47 +1643,16 @@ privateRoute("get", "/api/coach-interactions", async (req, res) => {
       .json({ error: "Database is not configured (no DATABASE_URL)." });
   }
 
-  const conversationId = req.query.conversation || DEFAULT_CONVERSATION_ID;
+  const ownerUserId = req && req.xlaiUser && req.xlaiUser.id ? req.xlaiUser.id : null;
+  const conversationUuid = req.query.conversation_uuid || req.query.conversation;
 
   try {
-    const result = await pool.query(
-      `
-      SELECT
-        id,
-        conversation_id,
-        user_id,
-        coach_question_text,
-        coach_response_text,
-        intent_guess,
-        intent_type,
-        rewrite_text,
-        insight_text,
-        principle_text,
-        intensity_score,
-        intensity_label,
-        risks,
-        coach_mode,
-        communication_intent_label,
-        communication_intent_confidence,
-        communication_emotion_primary,
-        communication_emotion_intensity,
-        communication_relationship_type,
-        communication_relationship_confidence,
-        communication_recipient_reaction,
-        communication_strategy_mode,
-        communication_strategy_approach,
-        communication_risks,
-        communication_max_risk_severity,
-        created_at_timestamp
-      FROM coach_interactions
-      WHERE conversation_id = $1
-      ORDER BY created_at_timestamp DESC
-      LIMIT 100;
-      `,
-      [conversationId]
-    );
+    const result = await listOwnedCoachInteractions({ pool, ownerUserId, conversationUuid });
+    if (!result.ok) {
+      return res.status(result.status).json({ error: result.error });
+    }
 
-    const rows = result.rows || [];
+    const rows = result.interactions || [];
     const byIntentType = {};
     rows.forEach((r) => {
       const key = r.intent_type || "unknown";

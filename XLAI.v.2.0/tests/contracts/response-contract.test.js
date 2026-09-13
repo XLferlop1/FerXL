@@ -61,6 +61,7 @@ function startServer(port = PORT, options = {}) {
     DATABASE_URL: "postgres://contract-test-only",
     FAKE_PG_TRACE_FILE,
     ...(options.journalDbFailure ? { FAKE_PG_JOURNAL_FAILURE: "1" } : {}),
+    ...(options.coachDbFailure ? { FAKE_PG_COACH_FAILURE: "1" } : {}),
     NODE_OPTIONS: `${process.env.NODE_OPTIONS ? `${process.env.NODE_OPTIONS} ` : ""}--require ${FAKE_ADMIN_SHIM} --require ${FAKE_PG_SHIM}`,
   };
 
@@ -91,6 +92,23 @@ async function requestJournalDbFailure() {
       status: response.status,
       payload: await response.json(),
     })));
+  } finally {
+    if (!child.killed) child.kill("SIGTERM");
+  }
+}
+
+async function requestCoachDbFailure() {
+  const port = PORT + 2;
+  const baseUrl = `http://127.0.0.1:${port}`;
+  const child = startServer(port, { coachDbFailure: true });
+  try {
+    await waitForHealth(baseUrl);
+    const response = await fetch(`${baseUrl}/api/coach-interactions`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...TEST_AUTH_HEADERS },
+      body: JSON.stringify({ conversationId: "11111111-1111-4111-8111-111111111111", coachQuestionText: "Database failure" }),
+    });
+    return { status: response.status, payload: await response.json() };
   } finally {
     if (!child.killed) child.kill("SIGTERM");
   }
@@ -149,6 +167,15 @@ function journalInsertCount() {
     .filter((event) => event.type === "journal_insert").length;
 }
 
+function coachInsertCount() {
+  if (!fs.existsSync(FAKE_PG_TRACE_FILE)) return 0;
+  return fs.readFileSync(FAKE_PG_TRACE_FILE, "utf8")
+    .split("\n")
+    .filter(Boolean)
+    .map((line) => JSON.parse(line))
+    .filter((event) => event.type === "coach_insert").length;
+}
+
 async function getJson(route) {
   const res = await fetch(`${BASE_URL}${route}`, { headers: TEST_AUTH_HEADERS });
   let payload = null;
@@ -192,6 +219,17 @@ async function run() {
     await waitForHealth();
 
     let ownedConversationId = null;
+    let coachConversationId = null;
+
+    await runCase("coach creation assigns canonical owned conversation", async () => {
+      const before = coachInsertCount();
+      const result = await postJson("/api/coach-interactions", {
+        conversationId: "not-a-uuid",
+        coachQuestionText: "This should be rejected",
+      });
+      assert(result.status === 400, `Expected malformed coach UUID 400 but got ${result.status}`);
+      assert(coachInsertCount() === before, "Malformed coach request must not insert");
+    });
 
     await runCase("journal creation assigns the authenticated owner", async () => {
       const before = journalInsertCount();
@@ -207,6 +245,157 @@ async function run() {
       assert(result.payload.entry.owner_user_id === "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa", "Expected authenticated owner");
       assert(result.payload.entry.user_id === null, "Expected legacy user_id to remain null");
       assert(journalInsertCount() === before + 1, "Expected one journal insert");
+    });
+
+    await runCase("coach creation succeeds for owned canonical conversation", async () => {
+      const conversation = await postJson("/api/conversations", { title: "Coach contract conversation" });
+      assert(conversation.status === 201, `Expected conversation 201 but got ${conversation.status}`);
+      coachConversationId = conversation.payload.conversation.id;
+      const result = await postJson("/api/coach-interactions", {
+        conversationId: coachConversationId,
+        coachQuestionText: "How can I say this clearly?",
+        coachResponseText: "Try a direct request.",
+      });
+
+      assert(result.status === 201, `Expected coach 201 but got ${result.status}`);
+      assert(result.payload && result.payload.ok === true, "Expected successful coach creation");
+      assert(coachInsertCount() >= 1, "Expected coach insert trace");
+    });
+
+    await runCase("coach creation ignores client userId identity", async () => {
+      const result = await postJson("/api/coach-interactions", {
+        conversationId: coachConversationId,
+        userId: "client-user-b",
+        coachQuestionText: "Question with client userId",
+      });
+
+      assert(result.status === 201, `Expected coach 201 but got ${result.status}`);
+      assert(result.payload && result.payload.ok === true, "Expected successful coach creation");
+
+      const listRes = await getJson(`/api/coach-interactions?conversation=${encodeURIComponent(coachConversationId)}`);
+      assert(listRes.status === 200, `Expected coach list 200 but got ${listRes.status}`);
+      const created = listRes.payload.interactions.find((item) => item.coach_question_text === "Question with client userId");
+      assert(created, "Expected created interaction in list");
+      assert(created.user_id === null, "Expected user_id to remain null");
+      assert(created.conversation_uuid === coachConversationId, "Expected canonical owned conversation UUID");
+    });
+
+    await runCase("coach creation ignores client user_id identity", async () => {
+      const result = await postJson("/api/coach-interactions", {
+        conversationId: coachConversationId,
+        user_id: "client-user-b",
+        coachQuestionText: "Question with client user_id",
+      });
+
+      assert(result.status === 201, `Expected coach 201 but got ${result.status}`);
+      assert(result.payload && result.payload.ok === true, "Expected successful coach creation");
+
+      const listRes = await getJson(`/api/coach-interactions?conversation=${encodeURIComponent(coachConversationId)}`);
+      assert(listRes.status === 200, `Expected coach list 200 but got ${listRes.status}`);
+      const created = listRes.payload.interactions.find((item) => item.coach_question_text === "Question with client user_id");
+      assert(created, "Expected created interaction in list");
+      assert(created.user_id === null, "Expected user_id to remain null");
+      assert(created.conversation_uuid === coachConversationId, "Expected canonical owned conversation UUID");
+    });
+
+    await runCase("coach list succeeds for owned conversation", async () => {
+      const result = await getJson(`/api/coach-interactions?conversation=${encodeURIComponent(coachConversationId || "not-a-uuid")}`);
+      assert(result.status === 200, `Expected coach list 200 but got ${result.status}`);
+      assert(result.payload && result.payload.ok === true, "Expected coach list response");
+      assert(result.payload.interactions.length >= 1, "Expected owned coach interaction");
+      assert(result.payload.interactions[0].conversation_uuid === coachConversationId, "Expected canonical owned conversation UUID");
+      assert(result.payload.interactions[0].user_id === null, "Expected user_id to be null on new writes");
+    });
+
+    await runCase("coach list succeeds for owned conversation with zero interactions", async () => {
+      const emptyConv = await postJson("/api/conversations", { title: "Empty coach conversation" });
+      assert(emptyConv.status === 201, `Expected 201 but got ${emptyConv.status}`);
+      const emptyId = emptyConv.payload.conversation.id;
+
+      const result = await getJson(`/api/coach-interactions?conversation=${encodeURIComponent(emptyId)}`);
+      assert(result.status === 200, `Expected coach list 200 but got ${result.status}`);
+      assert(result.payload && result.payload.ok === true, "Expected coach list response");
+      assert(Array.isArray(result.payload.interactions) && result.payload.interactions.length === 0, "Expected empty interactions array");
+    });
+
+    await runCase("coach list excludes foreign coach fixtures", async () => {
+      const result = await getJson(`/api/coach-interactions?conversation=${encodeURIComponent(coachConversationId)}`);
+      assert(result.status === 200, `Expected coach list 200 but got ${result.status}`);
+      const foreignFound = result.payload.interactions.some((item) => item.id === 998 || item.coach_question_text === "Foreign coach question");
+      assert(!foreignFound, "Expected foreign coach fixture to be excluded");
+    });
+
+    await runCase("coach list excludes NULL-bridge coach fixtures", async () => {
+      const nullBridgeConv = await postJson("/api/conversations", { title: "NULL bridge test conversation" });
+      assert(nullBridgeConv.status === 201, `Expected 201 but got ${nullBridgeConv.status}`);
+
+      const result = await getJson(`/api/coach-interactions?conversation=${encodeURIComponent(nullBridgeConv.payload.conversation.id)}`);
+      assert(result.status === 200, `Expected coach list 200 but got ${result.status}`);
+      const nullBridgeFound = result.payload.interactions.some((item) => item.id === 999 || item.coach_question_text === "Legacy unbridged coach question");
+      assert(!nullBridgeFound, "Expected NULL-bridge coach fixture to be excluded");
+    });
+
+    for (const field of ["owner_user_id", "ownerUserId"]) {
+      await runCase(`coach creation rejects client field ${field}`, async () => {
+        const before = coachInsertCount();
+        const result = await postJson("/api/coach-interactions", {
+          [field]: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+          conversationId: "11111111-1111-4111-8111-111111111111",
+          coachQuestionText: "Rejected owner",
+        });
+        assert(result.status === 400, `${field}: expected 400 but got ${result.status}`);
+        assert(JSON.stringify(result.payload) === JSON.stringify({ error: "invalid_coach_request" }), `${field}: expected sanitized error`);
+        assert(coachInsertCount() === before, `${field}: expected zero coach inserts`);
+      });
+    }
+
+    await runCase("foreign coach conversation returns neutral not-found", async () => {
+      const result = await postJson("/api/coach-interactions", { conversationId: "22222222-2222-4222-8222-222222222222", coachQuestionText: "Blocked" });
+      assert(result.status === 404, `Expected 404 but got ${result.status}`);
+      assert(JSON.stringify(result.payload) === JSON.stringify({ error: "conversation_not_found" }), "Expected neutral coach not-found");
+    });
+
+    await runCase("nonexistent coach conversation matches foreign not-found", async () => {
+      const result = await postJson("/api/coach-interactions", { conversationId: "33333333-3333-4333-8333-333333333333", coachQuestionText: "Blocked" });
+      assert(result.status === 404, `Expected 404 but got ${result.status}`);
+      assert(JSON.stringify(result.payload) === JSON.stringify({ error: "conversation_not_found" }), "Expected neutral coach not-found");
+    });
+
+    await runCase("foreign coach list returns neutral not-found", async () => {
+      const result = await getJson("/api/coach-interactions?conversation=22222222-2222-4222-8222-222222222222");
+      assert(result.status === 404, `Expected 404 but got ${result.status}`);
+      assert(JSON.stringify(result.payload) === JSON.stringify({ error: "conversation_not_found" }), "Expected neutral coach list not-found");
+    });
+
+    await runCase("nonexistent coach list matches foreign not-found", async () => {
+      const result = await getJson("/api/coach-interactions?conversation=33333333-3333-4333-8333-333333333333");
+      assert(result.status === 404, `Expected 404 but got ${result.status}`);
+      assert(JSON.stringify(result.payload) === JSON.stringify({ error: "conversation_not_found" }), "Expected neutral coach list not-found");
+    });
+
+    await runCase("malformed coach list conversation UUID is rejected", async () => {
+      const result = await getJson("/api/coach-interactions?conversation=default");
+      assert(result.status === 400, `Expected 400 but got ${result.status}`);
+      assert(JSON.stringify(result.payload) === JSON.stringify({ error: "invalid_coach_request" }), "Expected sanitized invalid coach request");
+    });
+
+    await runCase("unauthenticated coach creation is rejected", async () => {
+      const result = await postJson("/api/coach-interactions", { conversationId: "11111111-1111-4111-8111-111111111111", coachQuestionText: "Unauthenticated" }, {}, { authenticated: false });
+      assert(result.status === 401, `Expected 401 but got ${result.status}`);
+      assert(JSON.stringify(result.payload) === JSON.stringify({ error: "unauthorized" }), "Expected unauthorized response");
+    });
+
+    await runCase("unauthenticated coach list is rejected", async () => {
+      const result = await fetch(`${BASE_URL}/api/coach-interactions?conversation=11111111-1111-4111-8111-111111111111`);
+      const payload = await result.json();
+      assert(result.status === 401, `Expected 401 but got ${result.status}`);
+      assert(JSON.stringify(payload) === JSON.stringify({ error: "unauthorized" }), "Expected unauthorized response");
+    });
+
+    await runCase("coach database failure returns sanitized 503", async () => {
+      const result = await requestCoachDbFailure();
+      assert(result.status === 503, `Expected 503 but got ${result.status}`);
+      assert(JSON.stringify(result.payload) === JSON.stringify({ error: "coach_service_unavailable" }), "Expected sanitized coach failure");
     });
 
     await runCase("journal creation ignores legacy user_id identity", async () => {

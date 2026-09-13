@@ -11,7 +11,14 @@ const ACTIVE_USER = {
 
 class FakePool {
   constructor() {
-    this.conversations = [];
+    this.conversations = [
+      {
+        id: "22222222-2222-4222-8222-222222222222",
+        owner_user_id: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+        title: "Foreign conversation",
+        created_at: "2026-09-12T00:00:00.000Z",
+      },
+    ];
     this.messages = [];
     this.nextMessageId = 1;
     this.journalEntries = [{
@@ -22,6 +29,25 @@ class FakePool {
       entry_text: "Legacy unowned entry",
       created_at_timestamp: "2026-09-12T00:00:00.000Z",
     }];
+    this.coachInteractions = [
+      {
+        id: 998,
+        conversation_uuid: "22222222-2222-4222-8222-222222222222",
+        conversation_id: "22222222-2222-4222-8222-222222222222",
+        user_id: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+        coach_question_text: "Foreign coach question",
+        created_at_timestamp: "2026-09-12T00:00:00.000Z",
+      },
+      {
+        id: 999,
+        conversation_uuid: null,
+        conversation_id: "null-bridge-context",
+        user_id: "legacy-user-a",
+        coach_question_text: "Legacy unbridged coach question",
+        created_at_timestamp: "2026-09-12T00:00:00.000Z",
+      },
+    ];
+    this.nextCoachId = 1000;
     this.nextJournalId = 1;
   }
 
@@ -33,6 +59,9 @@ class FakePool {
   async query(sql, params = []) {
     if (process.env.FAKE_PG_JOURNAL_FAILURE === "1" && /journal_entries/i.test(sql)) {
       throw new Error("fake journal database outage");
+    }
+    if (process.env.FAKE_PG_COACH_FAILURE === "1" && /coach_interactions/i.test(sql)) {
+      throw new Error("fake coach database outage");
     }
 
     if (/INSERT INTO internal_users/i.test(sql)) {
@@ -80,6 +109,39 @@ class FakePool {
       this.journalEntries.push(entry);
       this.record({ type: "journal_insert", entry });
       return { rows: [entry], rowCount: 1 };
+    }
+
+    if (/INSERT INTO coach_interactions/i.test(sql) && /FROM conversations/i.test(sql)) {
+      const conversation = this.conversations.find((row) => row.id === params[0] && row.owner_user_id === params[1]);
+      if (!conversation) return { rows: [], rowCount: 0 };
+
+      const interaction = {
+        id: this.nextCoachId++,
+        conversation_uuid: conversation.id,
+        conversation_id: conversation.id,
+        user_id: null,
+        coach_question_text: params[2],
+        coach_response_text: params[3],
+        intent_guess: params[4],
+        intent_type: params[5],
+        rewrite_text: params[6],
+        insight_text: params[7],
+        principle_text: params[8],
+        intensity_score: params[9],
+        intensity_label: params[10],
+        risks: params[11],
+        coach_mode: params[12],
+        created_at_timestamp: "2026-09-13T00:00:00.000Z",
+      };
+      this.coachInteractions.push(interaction);
+      this.record({ type: "coach_insert", interaction });
+      return { rows: [interaction], rowCount: 1 };
+    }
+
+    if (/FROM coach_interactions ci/i.test(sql) && /JOIN conversations c/i.test(sql)) {
+      const rows = this.coachInteractions.filter((row) => row.conversation_uuid === params[0]
+        && this.conversations.some((conversation) => conversation.id === row.conversation_uuid && conversation.owner_user_id === params[1]));
+      return { rows, rowCount: rows.length };
     }
 
     if (/FROM journal_entries/i.test(sql) && /WHERE owner_user_id = \$1/i.test(sql)) {
