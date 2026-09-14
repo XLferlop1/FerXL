@@ -3,11 +3,25 @@
 const Module = require("module");
 const fs = require("fs");
 
-const ACTIVE_USER = {
+const CONTRACT_USER = {
   id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
   firebase_uid: "contract-test-user",
   status: "active",
 };
+
+const B7_USER_A = {
+  id: "77777777-7777-4777-8777-777777777777",
+  firebase_uid: "b7-test-firebase-user-a",
+  status: "active",
+};
+
+const B7_USER_B = {
+  id: "88888888-8888-4888-8888-888888888888",
+  firebase_uid: "b7-test-firebase-user-b",
+  status: "active",
+};
+
+const ACTIVE_USERS = [CONTRACT_USER, B7_USER_A, B7_USER_B];
 
 class FakePool {
   constructor() {
@@ -91,7 +105,13 @@ class FakePool {
     }
 
     if (/INSERT INTO internal_users/i.test(sql)) {
-      return { rows: [ACTIVE_USER], rowCount: 1 };
+      const activeUser = ACTIVE_USERS.find((row) => row.firebase_uid === params[1]);
+      return { rows: activeUser ? [activeUser] : [{ id: params[0], firebase_uid: params[1], status: "pending" }], rowCount: 1 };
+    }
+
+    if (/SELECT id, firebase_uid, status\s*FROM internal_users\s*WHERE firebase_uid = \$1/i.test(sql)) {
+      const activeUser = ACTIVE_USERS.find((row) => row.firebase_uid === params[0]);
+      return { rows: activeUser ? [activeUser] : [], rowCount: activeUser ? 1 : 0 };
     }
 
     if (/UPDATE internal_users/i.test(sql)) {

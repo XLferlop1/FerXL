@@ -1,6 +1,13 @@
 "use strict";
 
 const Module = require("module");
+
+const TOKEN_TO_UID = Object.freeze({
+  "contract-test-token": "contract-test-user",
+  "TOKEN_A": "b7-test-firebase-user-a",
+  "TOKEN_B": "b7-test-firebase-user-b",
+});
+
 const fakeAdmin = {
   apps: [],
   credential: {
@@ -12,7 +19,13 @@ const fakeAdmin = {
     return {
       auth() {
         return {
-          verifyIdToken: async () => ({ uid: "contract-test-user" }),
+          verifyIdToken: async (token) => {
+            const uid = TOKEN_TO_UID[token];
+            if (!uid) {
+              throw new Error("invalid token");
+            }
+            return { uid };
+          },
         };
       },
     };
