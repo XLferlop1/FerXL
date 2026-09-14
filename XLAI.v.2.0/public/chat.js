@@ -3313,8 +3313,14 @@ async function sendMessageToServer(originalText, finalText, intensityInfo, wasPa
 // Pull behavior feedback for the right-hand coach card
 async function refreshEqCoach() {
   try {
+    const canonicalConversationUuid = typeof currentConversationId === "string"
+      && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(currentConversationId.trim())
+      ? currentConversationId.trim()
+      : null;
+    if (!canonicalConversationUuid) return;
+
     const url = `/api/behavior-feedback?conversation=${encodeURIComponent(
-      currentConversationId
+      canonicalConversationUuid
     )}`;
     const res = await authenticatedFetch(url);
     if (!res.ok) {
@@ -3643,7 +3649,13 @@ if (analyzerToggleBtn) {
 // Load pattern summary
 async function loadPatternSummary() {
   try {
-    const url = `/api/pattern-summary?conversation=${encodeURIComponent(currentConversationId)}`;
+    const canonicalConversationUuid = typeof currentConversationId === "string"
+      && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(currentConversationId.trim())
+      ? currentConversationId.trim()
+      : null;
+    if (!canonicalConversationUuid) return;
+
+    const url = `/api/pattern-summary?conversation=${encodeURIComponent(canonicalConversationUuid)}`;
     const res = await authenticatedFetch(url);
     if (!res.ok) {
       console.error("[XL AI] /api/pattern-summary error status:", res.status);

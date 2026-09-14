@@ -38,6 +38,11 @@ const {
   createOwnedCoachInteraction,
   listOwnedCoachInteractions,
 } = require("./auth/coachOwnership");
+const {
+  readOwnedBehaviorFeedback,
+  readOwnedInteractionTimeline,
+  readOwnedPatternSummary,
+} = require("./auth/derivedAnalyticsOwnership");
 
 // Load environment variables (.env)
 dotenv.config();
@@ -1403,76 +1408,22 @@ privateRoute("get", "/api/history", async (req, res) => {
 // 🔹 4) Behavior feedback for the right-hand EQ coach
 privateRoute("get", "/api/behavior-feedback", async (req, res) => {
   if (!pool) {
-    return res
-      .status(500)
-      .json({ error: "Database is not configured (no DATABASE_URL)." });
+    return res.status(503).json({ error: "conversation_service_unavailable" });
   }
 
-  const conversationId = req.query.conversation || DEFAULT_CONVERSATION_ID;
+  const ownerUserId = req && req.xlaiUser && req.xlaiUser.id ? req.xlaiUser.id : null;
+  const conversationId = req.query.conversation_uuid || req.query.conversation;
 
   try {
-    const result = await pool.query(
-      `
-      SELECT intensity_score, pre_send_emotion, created_at_timestamp
-      FROM messages
-      WHERE conversation_id = $1
-      ORDER BY created_at_timestamp DESC
-      LIMIT 50;
-    `,
-      [conversationId]
-    );
-
-    const rows = result.rows || [];
-    const recent = rows.filter((r) => r.intensity_score != null);
-
-    let avg = null;
-    if (recent.length > 0) {
-      const sum = recent.reduce(
-        (acc, r) => acc + Number(r.intensity_score || 0),
-        0
-      );
-      avg = sum / recent.length;
+    const result = await readOwnedBehaviorFeedback({ pool, ownerUserId, conversationId });
+    if (!result.ok) {
+      return res.status(result.status).json({ error: result.error });
     }
 
-    const riskLevel = labelFromScore(avg);
-
-    // Simple top emotion (use pre_send_emotion column from DB)
-    const emotionCounts = {};
-    for (const r of rows) {
-      if (!r.pre_send_emotion) continue;
-      const e = String(r.pre_send_emotion).toLowerCase();
-      emotionCounts[e] = (emotionCounts[e] || 0) + 1;
-    }
-    let topEmotion = null;
-    let topCount = 0;
-    for (const [e, count] of Object.entries(emotionCounts)) {
-      if (count > topCount) {
-        topCount = count;
-        topEmotion = e;
-      }
-    }
-
-    let coachHint = "Your recent messages look fairly steady.";
-    if (riskLevel === "high") {
-      coachHint =
-        "Tension looks high. Try slowing down, naming how you feel, and asking one curious question instead of defending.";
-    } else if (riskLevel === "medium") {
-      coachHint =
-        "There’s some emotional charge here. Consider one validating sentence before sharing your side.";
-    }
-
-    res.json({
-      feedback: {
-        riskLevel,
-        averageIntensity: avg,
-        topEmotion,
-        coachHint,
-        sampleSize: rows.length,
-      },
-    });
+    res.json({ feedback: result.feedback });
   } catch (err) {
     console.error("❌ /api/behavior-feedback DB error:", err);
-    res.status(500).json({ error: "Failed to compute behavior feedback." });
+    res.status(503).json({ error: "conversation_service_unavailable" });
   }
 });
 
@@ -1676,315 +1627,53 @@ privateRoute("get", "/api/coach-interactions", async (req, res) => {
 // 🔹 4c) Unified timeline: messages + coach interactions
 privateRoute("get", "/api/interaction-timeline", async (req, res) => {
   if (!pool) {
-    return res
-      .status(500)
-      .json({ error: "Database is not configured (no DATABASE_URL)." });
+    return res.status(503).json({ error: "conversation_service_unavailable" });
   }
 
-  const conversationId = req.query.conversation || DEFAULT_CONVERSATION_ID;
+  const ownerUserId = req && req.xlaiUser && req.xlaiUser.id ? req.xlaiUser.id : null;
+  const conversationId = req.query.conversation_uuid || req.query.conversation;
   const limit = Math.min(Number(req.query.limit) || 120, 300);
 
   try {
-    const [messagesResult, coachResult] = await Promise.all([
-      pool.query(
-        `
-        SELECT
-          id,
-          conversation_id,
-          user_id,
-          final_text,
-          original_text,
-          used_suggestion,
-          intent_guess,
-          risks,
-          created_at_timestamp
-        FROM messages
-        WHERE conversation_id = $1
-        ORDER BY created_at_timestamp DESC
-        LIMIT $2;
-        `,
-        [conversationId, limit]
-      ),
-      pool.query(
-        `
-        SELECT
-          id,
-          conversation_id,
-          user_id,
-          coach_question_text,
-          coach_response_text,
-          intent_type,
-          intent_guess,
-          rewrite_text,
-          insight_text,
-          principle_text,
-          created_at_timestamp
-        FROM coach_interactions
-        WHERE conversation_id = $1
-        ORDER BY created_at_timestamp DESC
-        LIMIT $2;
-        `,
-        [conversationId, limit]
-      ),
-    ]);
-
-    const messageEvents = (messagesResult.rows || []).map((row) => ({
-      id: `m_${row.id}`,
-      timestamp: row.created_at_timestamp,
-      source: "message",
-      eventType: "message_sent",
-      conversationId: row.conversation_id,
-      userId: row.user_id,
-      preview: shortPreview(row.final_text || row.original_text || ""),
-      context: {
-        intentGuess: row.intent_guess || null,
-        rewriteUsed: !!row.used_suggestion,
-        risks: Array.isArray(row.risks) ? row.risks : [],
-      },
-    }));
-
-    const coachEvents = (coachResult.rows || []).map((row) => ({
-      id: `c_${row.id}`,
-      timestamp: row.created_at_timestamp,
-      source: "coach",
-      eventType: "coach_interaction",
-      conversationId: row.conversation_id,
-      userId: row.user_id,
-      preview: shortPreview(row.coach_question_text || ""),
-      context: {
-        intentType: row.intent_type || null,
-        intentGuess: row.intent_guess || null,
-        hasRewrite: !!row.rewrite_text,
-        coachResponsePreview: shortPreview(row.coach_response_text || "", 110),
-        rewritePreview: shortPreview(row.rewrite_text || "", 110),
-        insightPreview: shortPreview(row.insight_text || "", 90),
-        principlePreview: shortPreview(row.principle_text || "", 90),
-      },
-    }));
-
-    const timeline = [...messageEvents, ...coachEvents]
-      .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
-      .slice(0, limit);
+    const result = await readOwnedInteractionTimeline({ pool, ownerUserId, conversationId, limit });
+    if (!result.ok) {
+      return res.status(result.status).json({ error: result.error });
+    }
 
     res.json({
       ok: true,
-      timeline,
-      summary: {
-        totalEvents: timeline.length,
-        messageEvents: messageEvents.length,
-        coachEvents: coachEvents.length,
-      },
+      timeline: result.timeline,
+      summary: result.summary,
     });
   } catch (err) {
     console.error("[XL AI] /api/interaction-timeline DB error:", err);
-    res.status(500).json({ error: "Failed to load interaction timeline" });
+    res.status(503).json({ error: "conversation_service_unavailable" });
   }
 });
 
 // 🔹 4d) Pattern summary for Insights
 privateRoute("get", "/api/pattern-summary", async (req, res) => {
-  const conversationId = req.query.conversation || DEFAULT_CONVERSATION_ID;
+  if (!pool) {
+    return res.status(503).json({ error: "conversation_service_unavailable" });
+  }
+
+  const ownerUserId = req && req.xlaiUser && req.xlaiUser.id ? req.xlaiUser.id : null;
+  const conversationId = req.query.conversation_uuid || req.query.conversation;
 
   try {
-    const result = await pool.query(
-      `
-      SELECT
-        intensity_score,
-        was_pause_taken,
-        action_taken,
-        risks,
-        coach_mode,
-        communication_intent_label,
-        communication_emotion_primary,
-        communication_relationship_type,
-        communication_strategy_mode,
-        communication_max_risk_severity,
-        communication_risks
-      FROM messages
-      WHERE conversation_id = $1
-      ORDER BY created_at_timestamp DESC
-      LIMIT 100;
-      `,
-      [conversationId]
-    );
-
-    const rows = result.rows || [];
-    const totalMessages = rows.length;
-    if (totalMessages === 0) {
-      return res.json({
-        summary: {
-          totalMessages: 0,
-          averageIntensity: null,
-          pauseCount: 0,
-          pauseRate: 0,
-          actionFrequencies: {},
-          topRisk: null,
-          rewriteAcceptanceRate: 0,
-          sentAnywayRate: 0,
-          mostCommonCoachMode: null,
-          topCommunicationIntent: null,
-          topCommunicationEmotion: null,
-          topCommunicationRelationship: null,
-          topCommunicationStrategyMode: null,
-          averageCommunicationMaxRiskSeverity: null,
-          communicationRiskCounts: {}
-        },
-        insights: ["No messages yet to analyze patterns."]
-      });
+    const result = await readOwnedPatternSummary({ pool, ownerUserId, conversationId });
+    if (!result.ok) {
+      return res.status(result.status).json({ error: result.error });
     }
-
-    // Compute metrics
-    const intensities = rows.map(r => r.intensity_score).filter(i => i != null);
-    const averageIntensity = intensities.length > 0 ? intensities.reduce((a, b) => a + b, 0) / intensities.length : null;
-
-    const pauseCount = rows.filter(r => r.was_pause_taken).length;
-    const pauseRate = totalMessages > 0 ? pauseCount / totalMessages : 0;
-
-    const actionFrequencies = {};
-    rows.forEach(r => {
-      const action = r.action_taken;
-      if (action) actionFrequencies[action] = (actionFrequencies[action] || 0) + 1;
-    });
-
-    const allRisks = rows.flatMap(r => r.risks || []).filter(risk => risk);
-    const riskCounts = {};
-    allRisks.forEach(risk => riskCounts[risk] = (riskCounts[risk] || 0) + 1);
-    const topRisk = Object.keys(riskCounts).sort((a, b) => riskCounts[b] - riskCounts[a])[0] || null;
-
-    const rewriteAcceptanceRate = pauseCount > 0 ? rows.filter(r => r.was_pause_taken && r.action_taken === 'used_suggestion').length / pauseCount : 0;
-    const sentAnywayRate = pauseCount > 0 ? rows.filter(r => r.was_pause_taken && r.action_taken === 'sent_anyway').length / pauseCount : 0;
-
-    const coachModes = rows.map(r => r.coach_mode).filter(m => m);
-    const modeCounts = {};
-    coachModes.forEach(mode => modeCounts[mode] = (modeCounts[mode] || 0) + 1);
-    const mostCommonCoachMode = Object.keys(modeCounts).sort((a, b) => modeCounts[b] - modeCounts[a])[0] || null;
-
-    const countMostCommon = (values = []) => {
-      const counts = {};
-      values.filter(Boolean).forEach((value) => {
-        const key = String(value);
-        counts[key] = (counts[key] || 0) + 1;
-      });
-      const top = Object.keys(counts).sort((a, b) => counts[b] - counts[a])[0] || null;
-      return { top, counts };
-    };
-
-    const topIntentSummary = countMostCommon(rows.map((r) => r.communication_intent_label));
-    const topEmotionSummary = countMostCommon(rows.map((r) => r.communication_emotion_primary));
-    const topRelationshipSummary = countMostCommon(rows.map((r) => r.communication_relationship_type));
-    const topStrategyModeSummary = countMostCommon(rows.map((r) => r.communication_strategy_mode));
-
-    const maxRiskSeverityValues = rows
-      .map((r) => r.communication_max_risk_severity)
-      .filter((v) => typeof v === "number");
-    const averageCommunicationMaxRiskSeverity = maxRiskSeverityValues.length
-      ? maxRiskSeverityValues.reduce((a, b) => a + b, 0) / maxRiskSeverityValues.length
-      : null;
-
-    const communicationRiskCounts = {};
-    rows
-      .flatMap((r) => (Array.isArray(r.communication_risks) ? r.communication_risks : []))
-      .filter(Boolean)
-      .forEach((riskType) => {
-        const key = String(riskType);
-        communicationRiskCounts[key] = (communicationRiskCounts[key] || 0) + 1;
-      });
-
-    // Generate enhanced coaching insights
-    const insights = [];
-    let nextBestSuggestion = "Keep practicing mindful communication.";
-
-    // Determine coaching style based on mode
-    const modeStyle = mostCommonCoachMode === "soft" ? "gentle" : mostCommonCoachMode === "direct" ? "clear" : "balanced";
-
-    // Combine patterns for richer insights
-    if (pauseRate > 0.5 && rewriteAcceptanceRate > 0.7) {
-      insights.push(`You're thoughtfully pausing and often embracing AI suggestions — this ${modeStyle} approach is building strong communication habits.`);
-    } else if (pauseRate > 0.5 && sentAnywayRate > 0.5) {
-      insights.push(`You pause frequently but prefer your original wording, showing confidence in your voice while being mindful.`);
-    } else if (pauseRate < 0.2 && averageIntensity > 0.6) {
-      insights.push(`Your messages carry emotional intensity, and you send quickly — consider brief pauses to ensure your intent comes through clearly.`);
-      nextBestSuggestion = "Try a 5-second pause before sending intense messages.";
-    } else if (pauseRate < 0.2) {
-      insights.push(`You tend to send messages without pausing, which can be efficient but might miss opportunities for reflection.`);
-      nextBestSuggestion = "Experiment with pausing on messages that feel important.";
-    }
-
-    if (averageIntensity && averageIntensity > 0.6 && topRisk) {
-      insights.push(`Your communication often has higher intensity, with "${topRisk}" being a common risk — this awareness can help you navigate challenges.`);
-    } else if (averageIntensity && averageIntensity < 0.4) {
-      insights.push(`Your messages tend to be calm and measured, which helps maintain positive interactions.`);
-    }
-
-    if (rewriteAcceptanceRate > 0.7) {
-      insights.push(`You frequently accept AI rephrasing, showing openness to refining your communication style.`);
-    } else if (rewriteAcceptanceRate < 0.3 && sentAnywayRate > 0.5) {
-      insights.push(`You prefer sticking with your original messages even after pauses, valuing authenticity in your expression.`);
-      nextBestSuggestion = "Consider reviewing AI suggestions as optional inspiration rather than requirements.";
-    }
-
-    // Ensure 2-4 insights
-    while (insights.length < 2) {
-      if (mostCommonCoachMode) {
-        insights.push(`Your preference for ${mostCommonCoachMode} coaching suggests you value ${modeStyle} guidance in communication.`);
-      } else {
-        insights.push("Your communication patterns are developing well with consistent use of the app.");
-      }
-    }
-    if (insights.length > 4) insights.splice(4);
-
-    // Tailor nextBestSuggestion based on patterns
-    if (pauseRate < 0.3 && averageIntensity > 0.5) {
-      nextBestSuggestion = "Practice pausing on emotionally charged messages to improve clarity.";
-    } else if (rewriteAcceptanceRate < 0.4 && pauseRate > 0.4) {
-      nextBestSuggestion = "When pausing, try experimenting with AI suggestions to see what resonates.";
-    } else if (sentAnywayRate > 0.6) {
-      nextBestSuggestion = "Reflect on why you often send anyway — it might reveal strong communication instincts.";
-    }
-
-    const coachResult = await pool.query(
-      `
-      SELECT intent_type
-      FROM coach_interactions
-      WHERE conversation_id = $1
-      ORDER BY created_at_timestamp DESC
-      LIMIT 100;
-      `,
-      [conversationId]
-    );
-    const coachRows = coachResult.rows || [];
-    const coachIntentTypeCounts = {};
-    coachRows.forEach((r) => {
-      const key = r.intent_type || "unknown";
-      coachIntentTypeCounts[key] = (coachIntentTypeCounts[key] || 0) + 1;
-    });
 
     res.json({
-      summary: {
-        totalMessages,
-        averageIntensity,
-        pauseCount,
-        pauseRate,
-        actionFrequencies,
-        topRisk,
-        rewriteAcceptanceRate,
-        sentAnywayRate,
-        mostCommonCoachMode,
-        topCommunicationIntent: topIntentSummary.top,
-        topCommunicationEmotion: topEmotionSummary.top,
-        topCommunicationRelationship: topRelationshipSummary.top,
-        topCommunicationStrategyMode: topStrategyModeSummary.top,
-        averageCommunicationMaxRiskSeverity,
-        communicationRiskCounts,
-        totalCoachInteractions: coachRows.length,
-        coachIntentTypeCounts
-      },
-      insights,
-      nextBestSuggestion
+      summary: result.summary,
+      insights: result.insights,
+      nextBestSuggestion: result.nextBestSuggestion,
     });
   } catch (err) {
     console.error("[XL AI] /api/pattern-summary DB error:", err);
-    res.status(500).json({ error: "Failed to compute pattern summary." });
+    res.status(503).json({ error: "conversation_service_unavailable" });
   }
 });
 

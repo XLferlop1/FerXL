@@ -19,8 +19,31 @@ class FakePool {
         created_at: "2026-09-12T00:00:00.000Z",
       },
     ];
-    this.messages = [];
-    this.nextMessageId = 1;
+    this.messages = [
+      {
+        id: 998,
+        conversation_uuid: "22222222-2222-4222-8222-222222222222",
+        conversation_id: "22222222-2222-4222-8222-222222222222",
+        user_id: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+        original_text: "Foreign message text",
+        final_text: "Foreign message text",
+        pre_send_emotion: "frustrated",
+        intensity_score: 0.9,
+        created_at_timestamp: "2026-09-12T00:00:00.000Z",
+      },
+      {
+        id: 999,
+        conversation_uuid: null,
+        conversation_id: "null-bridge-context",
+        user_id: "legacy-user-a",
+        original_text: "Legacy unbridged message",
+        final_text: "Legacy unbridged message",
+        pre_send_emotion: "angry",
+        intensity_score: 0.95,
+        created_at_timestamp: "2026-09-12T00:00:00.000Z",
+      },
+    ];
+    this.nextMessageId = 1000;
     this.journalEntries = [{
       id: 900,
       owner_user_id: null,
@@ -63,6 +86,9 @@ class FakePool {
     if (process.env.FAKE_PG_COACH_FAILURE === "1" && /coach_interactions/i.test(sql)) {
       throw new Error("fake coach database outage");
     }
+    if (process.env.FAKE_PG_DERIVED_FAILURE === "1" && (/m\.conversation_uuid/i.test(sql) || /ci\.conversation_uuid/i.test(sql) || (/FROM conversations/i.test(sql) && /WHERE id = \$1/i.test(sql)))) {
+      throw new Error("fake derived analytics database outage");
+    }
 
     if (/INSERT INTO internal_users/i.test(sql)) {
       return { rows: [ACTIVE_USER], rowCount: 1 };
@@ -86,6 +112,47 @@ class FakePool {
         created_at: "2026-09-12T00:00:00.000Z",
       };
       this.conversations.push(conversation);
+
+      const legacyMessageAttack = {
+        id: this.nextMessageId++,
+        conversation_uuid: null,
+        conversation_id: conversation.id,
+        user_id: "legacy-user-a",
+        original_text: "LEGACY_MESSAGE_ATTACK_MARKER",
+        final_text: "LEGACY_MESSAGE_ATTACK_MARKER",
+        pre_send_emotion: "panicked",
+        intensity_score: 1,
+        was_pause_taken: false,
+        used_suggestion: false,
+        action_taken: null,
+        pause_reason: null,
+        risks: [],
+        intent_guess: null,
+        coach_mode: null,
+        created_at_timestamp: "2026-09-12T00:01:00.000Z",
+      };
+      this.messages.push(legacyMessageAttack);
+
+      const legacyCoachAttack = {
+        id: this.nextCoachId++,
+        conversation_uuid: null,
+        conversation_id: conversation.id,
+        user_id: "legacy-user-a",
+        coach_question_text: "LEGACY_COACH_ATTACK_MARKER",
+        coach_response_text: "Legacy attack response",
+        intent_guess: null,
+        intent_type: "legacy_attack",
+        rewrite_text: null,
+        insight_text: null,
+        principle_text: null,
+        intensity_score: 1,
+        intensity_label: "high",
+        risks: [],
+        coach_mode: "legacy",
+        created_at_timestamp: "2026-09-12T00:02:00.000Z",
+      };
+      this.coachInteractions.push(legacyCoachAttack);
+
       this.record({ type: "conversation_insert", conversation });
       return { rows: [conversation], rowCount: 1 };
     }

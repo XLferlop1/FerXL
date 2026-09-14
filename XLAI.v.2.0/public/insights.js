@@ -2,8 +2,12 @@
 
 (async function () {
   const betaConfig = window.XL_BETA_CONFIG || {};
-  const conversationId = betaConfig.defaultConversationId || "default";
-  const userId = betaConfig.userId || "beta_default_user";
+  const searchParams = new URLSearchParams(window.location.search);
+  const rawConversationId = searchParams.get("conversation") || betaConfig.defaultConversationId;
+  const conversationId = typeof rawConversationId === "string"
+    && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(rawConversationId.trim())
+    ? rawConversationId.trim()
+    : null;
 
   const patternEl = document.getElementById("insightsPatternSummary");
   const behaviorEl = document.getElementById("insightsBehavior");
@@ -16,7 +20,7 @@
   const timelineFilterButtons = Array.from(document.querySelectorAll("[data-timeline-filter]"));
 
   if (insightsUserBadge) {
-    insightsUserBadge.textContent = `User: ${userId}`;
+    insightsUserBadge.textContent = "Insights";
   }
 
   let allTimelineEvents = [];
@@ -203,13 +207,24 @@
     });
   });
 
+  if (!conversationId) {
+    if (patternEl) patternEl.textContent = "Select a valid conversation to view insights.";
+    if (behaviorEl) behaviorEl.textContent = "Select a valid conversation to view feedback.";
+    if (historyEl) historyEl.innerHTML = '<tr><td colspan="5">Select a valid conversation.</td></tr>';
+    if (coachSummaryEl) coachSummaryEl.textContent = "Select a valid conversation.";
+    if (coachHistoryEl) coachHistoryEl.innerHTML = '<tr><td colspan="5">Select a valid conversation.</td></tr>';
+    if (timelineEl) timelineEl.innerHTML = '<tr><td colspan="5">Select a valid conversation.</td></tr>';
+    if (timelineCountEl) timelineCountEl.textContent = "0 of 0";
+    return;
+  }
+
   try {
     const [patternRes, behaviorRes, historyRes, coachRes, timelineRes] = await Promise.all([
-      authenticatedFetch(`/api/pattern-summary?conversation=${encodeURIComponent(conversationId)}&userId=${encodeURIComponent(userId)}`),
-      authenticatedFetch(`/api/behavior-feedback?conversation=${encodeURIComponent(conversationId)}&userId=${encodeURIComponent(userId)}`),
-      authenticatedFetch(`/api/messages?conversation=${encodeURIComponent(conversationId)}&userId=${encodeURIComponent(userId)}`),
-      authenticatedFetch(`/api/coach-interactions?conversation=${encodeURIComponent(conversationId)}&userId=${encodeURIComponent(userId)}`),
-      authenticatedFetch(`/api/interaction-timeline?conversation=${encodeURIComponent(conversationId)}&userId=${encodeURIComponent(userId)}&limit=120`),
+      authenticatedFetch(`/api/pattern-summary?conversation=${encodeURIComponent(conversationId)}`),
+      authenticatedFetch(`/api/behavior-feedback?conversation=${encodeURIComponent(conversationId)}`),
+      authenticatedFetch(`/api/messages?conversation=${encodeURIComponent(conversationId)}`),
+      authenticatedFetch(`/api/coach-interactions?conversation=${encodeURIComponent(conversationId)}`),
+      authenticatedFetch(`/api/interaction-timeline?conversation=${encodeURIComponent(conversationId)}&limit=120`),
     ]);
 
     const patternData = patternRes.ok ? await patternRes.json() : {};

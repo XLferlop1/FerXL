@@ -62,6 +62,7 @@ function startServer(port = PORT, options = {}) {
     FAKE_PG_TRACE_FILE,
     ...(options.journalDbFailure ? { FAKE_PG_JOURNAL_FAILURE: "1" } : {}),
     ...(options.coachDbFailure ? { FAKE_PG_COACH_FAILURE: "1" } : {}),
+    ...(options.derivedDbFailure ? { FAKE_PG_DERIVED_FAILURE: "1" } : {}),
     NODE_OPTIONS: `${process.env.NODE_OPTIONS ? `${process.env.NODE_OPTIONS} ` : ""}--require ${FAKE_ADMIN_SHIM} --require ${FAKE_PG_SHIM}`,
   };
 
@@ -109,6 +110,26 @@ async function requestCoachDbFailure() {
       body: JSON.stringify({ conversationId: "11111111-1111-4111-8111-111111111111", coachQuestionText: "Database failure" }),
     });
     return { status: response.status, payload: await response.json() };
+  } finally {
+    if (!child.killed) child.kill("SIGTERM");
+  }
+}
+
+async function requestDerivedDbFailure() {
+  const port = PORT + 3;
+  const baseUrl = `http://127.0.0.1:${port}`;
+  const child = startServer(port, { derivedDbFailure: true });
+  try {
+    await waitForHealth(baseUrl);
+    const responses = await Promise.all([
+      fetch(`${baseUrl}/api/behavior-feedback?conversation=11111111-1111-4111-8111-111111111111`, { headers: TEST_AUTH_HEADERS }),
+      fetch(`${baseUrl}/api/interaction-timeline?conversation=11111111-1111-4111-8111-111111111111`, { headers: TEST_AUTH_HEADERS }),
+      fetch(`${baseUrl}/api/pattern-summary?conversation=11111111-1111-4111-8111-111111111111`, { headers: TEST_AUTH_HEADERS }),
+    ]);
+    return Promise.all(responses.map(async (response) => ({
+      status: response.status,
+      payload: await response.json(),
+    })));
   } finally {
     if (!child.killed) child.kill("SIGTERM");
   }
@@ -396,6 +417,209 @@ async function run() {
       const result = await requestCoachDbFailure();
       assert(result.status === 503, `Expected 503 but got ${result.status}`);
       assert(JSON.stringify(result.payload) === JSON.stringify({ error: "coach_service_unavailable" }), "Expected sanitized coach failure");
+    });
+
+    await runCase("behavior-feedback succeeds for owned conversation", async () => {
+      const result = await getJson(`/api/behavior-feedback?conversation=${encodeURIComponent(coachConversationId)}`);
+      assert(result.status === 200, `Expected 200 but got ${result.status}`);
+      assert(result.payload && result.payload.feedback, "Expected feedback object");
+      assert(typeof result.payload.feedback.riskLevel === "string", "Expected riskLevel string");
+    });
+
+    await runCase("behavior-feedback succeeds for owned conversation with zero messages", async () => {
+      const emptyConv = await postJson("/api/conversations", { title: "Empty behavior conversation" });
+      assert(emptyConv.status === 201, `Expected 201 but got ${emptyConv.status}`);
+      const emptyId = emptyConv.payload.conversation.id;
+
+      const result = await getJson(`/api/behavior-feedback?conversation=${encodeURIComponent(emptyId)}`);
+      assert(result.status === 200, `Expected 200 but got ${result.status}`);
+      assert(result.payload.feedback.sampleSize === 0, "Expected sampleSize 0");
+      assert(result.payload.feedback.averageIntensity === null, "Expected averageIntensity null");
+    });
+
+    await runCase("behavior-feedback excludes foreign and NULL-bridge message fixtures", async () => {
+      const result = await getJson(`/api/behavior-feedback?conversation=${encodeURIComponent(coachConversationId)}`);
+      assert(result.status === 200, `Expected 200 but got ${result.status}`);
+      assert(result.payload.feedback.sampleSize === 0, "Expected 0 messages in coachConversationId sample");
+      assert(result.payload.feedback.riskLevel === "low", "Legacy message attack row must not influence feedback risk");
+    });
+
+    await runCase("behavior-feedback ignores legacy conversation_id query parameter", async () => {
+      const result = await getJson(`/api/behavior-feedback?conversation=${encodeURIComponent(coachConversationId)}&conversation_id=22222222-2222-4222-8222-222222222222`);
+      assert(result.status === 200, `Expected 200 but got ${result.status}`);
+      assert(result.payload.feedback.sampleSize === 0, "Expected legacy conversation_id not to broaden feedback scope");
+    });
+
+    await runCase("behavior-feedback ignores spoofed userId query parameter", async () => {
+      const result = await getJson(`/api/behavior-feedback?conversation=${encodeURIComponent(coachConversationId)}&userId=bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb`);
+      assert(result.status === 200, `Expected 200 but got ${result.status}`);
+      assert(result.payload.feedback.sampleSize === 0, "Expected spoofed userId not to broaden feedback scope");
+    });
+
+    await runCase("behavior-feedback ignores spoofed user_id query parameter", async () => {
+      const result = await getJson(`/api/behavior-feedback?conversation=${encodeURIComponent(coachConversationId)}&user_id=bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb`);
+      assert(result.status === 200, `Expected 200 but got ${result.status}`);
+      assert(result.payload.feedback.sampleSize === 0, "Expected spoofed user_id not to broaden feedback scope");
+    });
+
+    await runCase("behavior-feedback foreign conversation returns neutral not-found", async () => {
+      const result = await getJson("/api/behavior-feedback?conversation=22222222-2222-4222-8222-222222222222");
+      assert(result.status === 404, `Expected 404 but got ${result.status}`);
+      assert(JSON.stringify(result.payload) === JSON.stringify({ error: "conversation_not_found" }), "Expected neutral 404");
+    });
+
+    await runCase("behavior-feedback nonexistent conversation matches foreign not-found", async () => {
+      const result = await getJson("/api/behavior-feedback?conversation=33333333-3333-4333-8333-333333333333");
+      assert(result.status === 404, `Expected 404 but got ${result.status}`);
+      assert(JSON.stringify(result.payload) === JSON.stringify({ error: "conversation_not_found" }), "Expected neutral 404");
+    });
+
+    await runCase("behavior-feedback malformed conversation UUID is rejected", async () => {
+      const result = await getJson("/api/behavior-feedback?conversation=default");
+      assert(result.status === 400, `Expected 400 but got ${result.status}`);
+      assert(JSON.stringify(result.payload) === JSON.stringify({ error: "invalid_conversation" }), "Expected sanitized invalid conversation error");
+    });
+
+    await runCase("interaction-timeline includes owned messages and coach rows", async () => {
+      const result = await getJson(`/api/interaction-timeline?conversation=${encodeURIComponent(coachConversationId)}`);
+      assert(result.status === 200, `Expected 200 but got ${result.status}`);
+      assert(result.payload && result.payload.ok === true, "Expected ok true");
+      assert(Array.isArray(result.payload.timeline), "Expected timeline array");
+      assert(result.payload.timeline.length >= 1, "Expected at least 1 timeline event");
+    });
+
+    await runCase("interaction-timeline excludes foreign and NULL-bridge fixtures", async () => {
+      const result = await getJson(`/api/interaction-timeline?conversation=${encodeURIComponent(coachConversationId)}`);
+      assert(result.status === 200, `Expected 200 but got ${result.status}`);
+      const foreignOrNullFound = result.payload.timeline.some((e) => ["m_998", "c_998", "m_999", "c_999"].includes(e.id));
+      assert(!foreignOrNullFound, "Expected foreign/NULL fixtures excluded");
+      const legacyMessageFound = result.payload.timeline.some((e) => e.preview && e.preview.includes("LEGACY_MESSAGE_ATTACK_MARKER"));
+      assert(!legacyMessageFound, "Legacy message attack row must not appear in timeline");
+      const legacyCoachFound = result.payload.timeline.some((e) => e.preview && e.preview.includes("LEGACY_COACH_ATTACK_MARKER"));
+      assert(!legacyCoachFound, "Legacy coach attack row must not appear in timeline");
+    });
+
+    await runCase("interaction-timeline succeeds for owned conversation with zero events", async () => {
+      const emptyConv = await postJson("/api/conversations", { title: "Empty timeline conversation" });
+      assert(emptyConv.status === 201, `Expected 201 but got ${emptyConv.status}`);
+      const emptyId = emptyConv.payload.conversation.id;
+
+      const result = await getJson(`/api/interaction-timeline?conversation=${encodeURIComponent(emptyId)}`);
+      assert(result.status === 200, `Expected 200 but got ${result.status}`);
+      assert(result.payload.timeline.length === 0, "Expected empty timeline array");
+      assert(result.payload.summary.totalEvents === 0, "Expected 0 totalEvents");
+    });
+
+    await runCase("interaction-timeline ignores legacy conversation_id query parameter", async () => {
+      const result = await getJson(`/api/interaction-timeline?conversation=${encodeURIComponent(coachConversationId)}&conversation_id=22222222-2222-4222-8222-222222222222`);
+      assert(result.status === 200, `Expected 200 but got ${result.status}`);
+      const foreignOrNullFound = result.payload.timeline.some((e) => ["m_998", "c_998", "m_999", "c_999"].includes(e.id));
+      assert(!foreignOrNullFound, "Expected legacy conversation_id not to broaden timeline scope");
+    });
+
+    await runCase("interaction-timeline ignores spoofed userId query parameter", async () => {
+      const result = await getJson(`/api/interaction-timeline?conversation=${encodeURIComponent(coachConversationId)}&userId=bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb`);
+      assert(result.status === 200, `Expected 200 but got ${result.status}`);
+      const foreignOrNullFound = result.payload.timeline.some((e) => ["m_998", "c_998", "m_999", "c_999"].includes(e.id));
+      assert(!foreignOrNullFound, "Expected spoofed userId not to broaden timeline scope");
+    });
+
+    await runCase("interaction-timeline ignores spoofed user_id query parameter", async () => {
+      const result = await getJson(`/api/interaction-timeline?conversation=${encodeURIComponent(coachConversationId)}&user_id=bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb`);
+      assert(result.status === 200, `Expected 200 but got ${result.status}`);
+      const foreignOrNullFound = result.payload.timeline.some((e) => ["m_998", "c_998", "m_999", "c_999"].includes(e.id));
+      assert(!foreignOrNullFound, "Expected spoofed user_id not to broaden timeline scope");
+    });
+
+    await runCase("interaction-timeline foreign conversation returns neutral not-found", async () => {
+      const result = await getJson("/api/interaction-timeline?conversation=22222222-2222-4222-8222-222222222222");
+      assert(result.status === 404, `Expected 404 but got ${result.status}`);
+      assert(JSON.stringify(result.payload) === JSON.stringify({ error: "conversation_not_found" }), "Expected neutral 404");
+    });
+
+    await runCase("interaction-timeline nonexistent conversation matches foreign not-found", async () => {
+      const result = await getJson("/api/interaction-timeline?conversation=33333333-3333-4333-8333-333333333333");
+      assert(result.status === 404, `Expected 404 but got ${result.status}`);
+      assert(JSON.stringify(result.payload) === JSON.stringify({ error: "conversation_not_found" }), "Expected neutral 404");
+    });
+
+    await runCase("interaction-timeline malformed conversation UUID is rejected", async () => {
+      const result = await getJson("/api/interaction-timeline?conversation=default");
+      assert(result.status === 400, `Expected 400 but got ${result.status}`);
+      assert(JSON.stringify(result.payload) === JSON.stringify({ error: "invalid_conversation" }), "Expected sanitized invalid conversation error");
+    });
+
+    await runCase("pattern-summary includes owned message and coach rows", async () => {
+      const result = await getJson(`/api/pattern-summary?conversation=${encodeURIComponent(coachConversationId)}`);
+      assert(result.status === 200, `Expected 200 but got ${result.status}`);
+      assert(result.payload && result.payload.summary, "Expected summary object");
+      assert(result.payload.summary.totalCoachInteractions >= 1, "Expected at least 1 coach interaction in summary");
+    });
+
+    await runCase("pattern-summary excludes foreign and NULL-bridge fixtures", async () => {
+      const result = await getJson(`/api/pattern-summary?conversation=${encodeURIComponent(coachConversationId)}`);
+      assert(result.status === 200, `Expected 200 but got ${result.status}`);
+      assert(result.payload.summary.totalMessages === 0, "Expected foreign/NULL messages excluded from count");
+      assert(result.payload.summary.totalCoachInteractions >= 1, "Expected at least one legitimate owned coach event");
+      assert(result.payload.summary.coachIntentTypeCounts["legacy_attack"] === undefined, "Legacy coach attack row must not contribute to summary");
+    });
+
+    await runCase("pattern-summary succeeds for owned conversation with zero data", async () => {
+      const emptyConv = await postJson("/api/conversations", { title: "Empty pattern conversation" });
+      assert(emptyConv.status === 201, `Expected 201 but got ${emptyConv.status}`);
+      const emptyId = emptyConv.payload.conversation.id;
+
+      const result = await getJson(`/api/pattern-summary?conversation=${encodeURIComponent(emptyId)}`);
+      assert(result.status === 200, `Expected 200 but got ${result.status}`);
+      assert(result.payload.summary.totalMessages === 0, "Expected 0 total messages");
+      assert(result.payload.summary.totalCoachInteractions === 0, "Expected 0 total coach interactions");
+      assert(Array.isArray(result.payload.insights) && result.payload.insights.length > 0, "Expected insights array");
+    });
+
+    await runCase("pattern-summary ignores legacy conversation_id query parameter", async () => {
+      const result = await getJson(`/api/pattern-summary?conversation=${encodeURIComponent(coachConversationId)}&conversation_id=22222222-2222-4222-8222-222222222222`);
+      assert(result.status === 200, `Expected 200 but got ${result.status}`);
+      assert(result.payload.summary.totalMessages === 0, "Expected legacy conversation_id not to broaden message summary scope");
+    });
+
+    await runCase("pattern-summary ignores spoofed userId query parameter", async () => {
+      const result = await getJson(`/api/pattern-summary?conversation=${encodeURIComponent(coachConversationId)}&userId=bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb`);
+      assert(result.status === 200, `Expected 200 but got ${result.status}`);
+      assert(result.payload.summary.totalMessages === 0, "Expected spoofed userId not to broaden message summary scope");
+    });
+
+    await runCase("pattern-summary ignores spoofed user_id query parameter", async () => {
+      const result = await getJson(`/api/pattern-summary?conversation=${encodeURIComponent(coachConversationId)}&user_id=bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb`);
+      assert(result.status === 200, `Expected 200 but got ${result.status}`);
+      assert(result.payload.summary.totalMessages === 0, "Expected spoofed user_id not to broaden message summary scope");
+    });
+
+    await runCase("pattern-summary foreign conversation returns neutral not-found", async () => {
+      const result = await getJson("/api/pattern-summary?conversation=22222222-2222-4222-8222-222222222222");
+      assert(result.status === 404, `Expected 404 but got ${result.status}`);
+      assert(JSON.stringify(result.payload) === JSON.stringify({ error: "conversation_not_found" }), "Expected neutral 404");
+    });
+
+    await runCase("pattern-summary nonexistent conversation matches foreign not-found", async () => {
+      const result = await getJson("/api/pattern-summary?conversation=33333333-3333-4333-8333-333333333333");
+      assert(result.status === 404, `Expected 404 but got ${result.status}`);
+      assert(JSON.stringify(result.payload) === JSON.stringify({ error: "conversation_not_found" }), "Expected neutral 404");
+    });
+
+    await runCase("pattern-summary malformed conversation UUID is rejected", async () => {
+      const result = await getJson("/api/pattern-summary?conversation=default");
+      assert(result.status === 400, `Expected 400 but got ${result.status}`);
+      assert(JSON.stringify(result.payload) === JSON.stringify({ error: "invalid_conversation" }), "Expected sanitized invalid conversation error");
+    });
+
+    await runCase("derived analytics database failures return sanitized 503", async () => {
+      const [bfFail, timelineFail, psFail] = await requestDerivedDbFailure();
+      assert(bfFail.status === 503, `Expected behavior feedback 503 but got ${bfFail.status}`);
+      assert(timelineFail.status === 503, `Expected timeline 503 but got ${timelineFail.status}`);
+      assert(psFail.status === 503, `Expected pattern summary 503 but got ${psFail.status}`);
+      assert(JSON.stringify(bfFail.payload) === JSON.stringify({ error: "conversation_service_unavailable" }), "Expected sanitized failure");
+      assert(JSON.stringify(timelineFail.payload) === JSON.stringify({ error: "conversation_service_unavailable" }), "Expected sanitized failure");
+      assert(JSON.stringify(psFail.payload) === JSON.stringify({ error: "conversation_service_unavailable" }), "Expected sanitized failure");
     });
 
     await runCase("journal creation ignores legacy user_id identity", async () => {
