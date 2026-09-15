@@ -17,6 +17,8 @@ const {
   runPrivacyCleanupSafe,
 } = require("./engine/privacyEngine");
 const { hardenContract } = require("./engine/responseContracts");
+const { hasOversizedText } = require("./security/inputLimits");
+const { createRateLimiter } = require("./security/rateLimiter");
 const { getFirebaseAdminAuth } = require("./auth/firebaseAdmin");
 const { createFirebaseAuthMiddleware } = require("./auth/firebaseAuthMiddleware");
 const { createInternalDevGate } = require("./auth/internalDevGate");
@@ -50,6 +52,55 @@ dotenv.config();
 const app = express();
 const PORT = process.env.PORT || 3000;
 const DEFAULT_CONVERSATION_ID = process.env.DEFAULT_CONVERSATION_ID || "default";
+const RATE_LIMIT_WINDOW_MS = Number(process.env.XLAI_RATE_LIMIT_WINDOW_MS) || 60 * 1000;
+const HIGH_COST_RATE_LIMIT_MAX = Number(process.env.XLAI_RATE_LIMIT_HIGH_COST_MAX) || 5;
+const WRITE_RATE_LIMIT_MAX = Number(process.env.XLAI_RATE_LIMIT_WRITE_MAX) || 60;
+
+function parseAllowedOrigins(value = "") {
+  if (!value.trim()) return new Set();
+
+  return new Set(value.split(",").map((entry) => {
+    const origin = entry.trim();
+    if (!origin) {
+      throw new Error("ALLOWED_ORIGINS contains an empty origin.");
+    }
+
+    let parsed;
+    try {
+      parsed = new URL(origin);
+    } catch (_) {
+      throw new Error("ALLOWED_ORIGINS contains a malformed origin.");
+    }
+
+    if (!/^https?:$/.test(parsed.protocol) || parsed.origin !== origin) {
+      throw new Error("ALLOWED_ORIGINS must contain exact HTTP or HTTPS origins.");
+    }
+
+    return origin;
+  }));
+}
+
+const allowedOrigins = parseAllowedOrigins(process.env.ALLOWED_ORIGINS || "");
+const highCostRateLimiter = createRateLimiter({
+  windowMs: RATE_LIMIT_WINDOW_MS,
+  max: HIGH_COST_RATE_LIMIT_MAX,
+});
+const writeRateLimiter = createRateLimiter({
+  windowMs: RATE_LIMIT_WINDOW_MS,
+  max: WRITE_RATE_LIMIT_MAX,
+});
+
+const HIGH_COST_RATE_LIMIT_ROUTES = new Set([
+  "/api/rephrase",
+  "/api/analyze-intensity",
+  "/api/journal-entries",
+]);
+const WRITE_RATE_LIMIT_ROUTES = new Set([
+  "/api/send",
+  "/api/conversations",
+  "/api/messages",
+  "/api/coach-interactions",
+]);
 
 // --------- OpenAI SETUP ----------
 if (!process.env.OPENAI_API_KEY) {
@@ -72,7 +123,18 @@ if (!process.env.DATABASE_URL) {
 
 // ---------- EXPRESS MIDDLEWARE ----------
 app.disable("x-powered-by");
-app.use(cors());
+app.use(cors({
+  origin(origin, callback) {
+    if (!origin || allowedOrigins.has(origin)) {
+      return callback(null, true);
+    }
+    return callback(null, false);
+  },
+  methods: ["GET", "POST", "OPTIONS"],
+  allowedHeaders: ["Authorization", "Content-Type"],
+  credentials: false,
+  optionsSuccessStatus: 204,
+}));
 app.use((req, res, next) => {
   res.setHeader("X-Content-Type-Options", "nosniff");
   res.setHeader("Referrer-Policy", "strict-origin-when-cross-origin");
@@ -102,11 +164,45 @@ const firebaseAuthMiddleware = createFirebaseAuthMiddleware({ getAuth: getFireba
 const internalUserResolver = createInternalUserResolver({ getPool: () => pool });
 const internalDevGate = createInternalDevGate();
 
+function rateLimitForRoute(method, route) {
+  if (method !== "POST") return null;
+  if (HIGH_COST_RATE_LIMIT_ROUTES.has(route)) return highCostRateLimiter;
+  if (WRITE_RATE_LIMIT_ROUTES.has(route)) return writeRateLimiter;
+  return null;
+}
+
+function createRouteRateLimitMiddleware(method, route) {
+  const limiter = rateLimitForRoute(method, route);
+  if (!limiter) return null;
+
+  return (req, res, next) => {
+    const identity = req && req.xlaiUser && req.xlaiUser.id
+      ? `user:${req.xlaiUser.id}`
+      : `socket:${req.socket && req.socket.remoteAddress ? req.socket.remoteAddress : "unknown"}`;
+    const result = limiter.check(`${route}:${identity}`);
+    if (!result.allowed) {
+      res.setHeader("Retry-After", String(result.retryAfterSeconds));
+      return res.status(429).json({ error: "rate_limited" });
+    }
+    return next();
+  };
+}
+
+function rejectOversizedText(res, fields) {
+  if (!hasOversizedText(fields)) return false;
+  res.status(400).json({ error: "input_too_large" });
+  return true;
+}
+
 function privateRoute(method, route, handler) {
   if (!isPrivateApiRoute(method, route) || isInternalDevRoute(method, route)) {
     throw new Error(`Private route is missing from the P0-A4 route registry: ${method.toUpperCase()} ${route}`);
   }
-  return app[method](route, firebaseAuthMiddleware, internalUserResolver, handler);
+  const rateLimitMiddleware = createRouteRateLimitMiddleware(method.toUpperCase(), route);
+  const middleware = [firebaseAuthMiddleware, internalUserResolver];
+  if (rateLimitMiddleware) middleware.push(rateLimitMiddleware);
+  middleware.push(handler);
+  return app[method](route, ...middleware);
 }
 
 function internalRoute(method, route, handler) {
@@ -550,6 +646,25 @@ Rules:
 // 🔹 1) Analyze intensity + get XL AI rephrase suggestion
 privateRoute("post", "/api/analyze-intensity", async (req, res) => {
   const { text, draft, tone, emotion, rewriteStrength, coachMode, userId, context } = req.body || {};
+  const contextBody = context && typeof context === "object" ? context : {};
+  const recentContextTexts = Array.isArray(contextBody.recentMessages)
+    ? contextBody.recentMessages.map((message) => message && message.text)
+    : [];
+  if (rejectOversizedText(res, {
+    text,
+    draft,
+    currentDraft: contextBody.currentDraft,
+    conversationName: contextBody.conversationName,
+    ...Object.fromEntries(recentContextTexts.map((value, index) => [`recentMessage${index}`, value])),
+    analyzerCommunicationPattern: contextBody.analyzer && contextBody.analyzer.communicationPattern,
+    analyzerStateOfMind: contextBody.analyzer && contextBody.analyzer.stateOfMind,
+    analyzerLikelyRecipientReaction: contextBody.analyzer && contextBody.analyzer.likelyRecipientReaction,
+    analyzerBestCommunicationMove: contextBody.analyzer && contextBody.analyzer.bestCommunicationMove,
+    analyzerRisk: contextBody.analyzer && contextBody.analyzer.risk,
+    latestRefineBestMove: contextBody.latestRefine && contextBody.latestRefine.bestMove,
+    latestRefineQuickRead: contextBody.latestRefine && contextBody.latestRefine.quickRead,
+    latestRefineRewrite: contextBody.latestRefine && contextBody.latestRefine.rewrite,
+  })) return;
   const contextEnvelope = buildContextEnvelope({
     route: req.path,
     body: req.body,
@@ -907,6 +1022,7 @@ privateRoute("post", "/api/rephrase", async (req, res) => {
     confidence,
     emotion
   } = req.body || {};
+  if (rejectOversizedText(res, { text, stateOfMind, intent, risk, emotion })) return;
   const contextEnvelope = buildContextEnvelope({
     route: req.path,
     body: req.body,
@@ -1117,6 +1233,11 @@ privateRoute("post", "/api/send", async (req, res) => {
 
   const ownerUserId = req && req.xlaiUser && req.xlaiUser.id ? req.xlaiUser.id : null;
   const requestBody = req.body || {};
+  if (rejectOversizedText(res, {
+    originalText: requestBody.originalText,
+    finalText: requestBody.finalText,
+    pauseReason: requestBody.pauseReason,
+  })) return;
   const conversationId = requestBody.conversation_uuid || requestBody.conversationId;
   const ownership = await getOwnedConversation({ pool, ownerUserId, conversationId });
   if (!ownership.ok) {
@@ -1266,6 +1387,13 @@ privateRoute("post", "/api/coach-interactions", async (req, res) => {
   }
 
   const requestBody = req.body || {};
+  if (rejectOversizedText(res, {
+    coachQuestionText: requestBody.coachQuestionText,
+    coachResponseText: requestBody.coachResponseText,
+    rewriteText: requestBody.rewriteText,
+    insightText: requestBody.insightText,
+    principleText: requestBody.principleText,
+  })) return;
   if (Object.prototype.hasOwnProperty.call(requestBody, "owner_user_id")
     || Object.prototype.hasOwnProperty.call(requestBody, "ownerUserId")) {
     return res.status(400).json({ error: "invalid_coach_request" });
@@ -1335,6 +1463,7 @@ privateRoute("post", "/api/journal-entries", async (req, res) => {
   }
 
   const requestBody = req.body || {};
+  if (rejectOversizedText(res, { entryText: requestBody.entryText })) return;
   if (Object.prototype.hasOwnProperty.call(requestBody, "owner_user_id")
     || Object.prototype.hasOwnProperty.call(requestBody, "ownerUserId")) {
     return res.status(400).json({ error: "invalid_journal_request" });
@@ -1548,6 +1677,14 @@ privateRoute("post", "/api/messages", async (req, res) => {
     return res.status(500).json({ error: "Database is not configured (no DATABASE_URL)" });
   }
 
+  const requestBody = req.body || {};
+  if (rejectOversizedText(res, {
+    text: requestBody.text,
+    finalText: requestBody.finalText,
+    originalText: requestBody.originalText,
+    pauseReason: requestBody.pauseReason,
+  })) return;
+
   const {
     conversationId,
     conversation_uuid: conversationUuid,
@@ -1563,7 +1700,7 @@ privateRoute("post", "/api/messages", async (req, res) => {
     risks,
     intentGuess,
     coachMode,
-  } = req.body || {};
+  } = requestBody;
 
   const ownerUserId = req && req.xlaiUser && req.xlaiUser.id ? req.xlaiUser.id : null;
   const safeConversationId = String(conversationUuid || conversationId || "").trim();
