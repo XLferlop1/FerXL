@@ -71,8 +71,29 @@ if (!process.env.DATABASE_URL) {
 }
 
 // ---------- EXPRESS MIDDLEWARE ----------
+app.disable("x-powered-by");
 app.use(cors());
-app.use(express.json());
+app.use((req, res, next) => {
+  res.setHeader("X-Content-Type-Options", "nosniff");
+  res.setHeader("Referrer-Policy", "strict-origin-when-cross-origin");
+  res.setHeader("X-Frame-Options", "DENY");
+  res.setHeader("Permissions-Policy", "camera=(), microphone=(), geolocation=(), payment=()");
+
+  if (isPrivateApiRoute(req.method, req.path)) {
+    res.setHeader("Cache-Control", "no-store, private");
+  }
+
+  next();
+});
+app.use(express.json({ limit: "100kb" }));
+app.use((err, req, res, next) => {
+  if (!err || err.type !== "entity.parse.failed" && err.type !== "entity.too.large") {
+    return next(err);
+  }
+
+  const status = err.type === "entity.too.large" ? 413 : 400;
+  return res.status(status).json({ error: status === 413 ? "request_too_large" : "invalid_json" });
+});
 
 // Serve static files from /public
 app.use(express.static(path.join(__dirname, "public")));
@@ -763,7 +784,7 @@ Return ONLY valid JSON in this exact shape:
     try {
       parsed = JSON.parse(raw);
     } catch (e) {
-      console.warn("⚠️ Could not parse AI JSON, falling back. Raw:", raw);
+      console.warn("⚠️ Could not parse AI JSON, falling back.");
       parsed = {
         ok: true,
         intent: "coach_question",
@@ -858,12 +879,10 @@ Return ONLY valid JSON in this exact shape:
 
     payload.adaptiveThreshold = adaptiveThreshold;
 
-    console.log("[XL AI] /api/analyze-intensity ->", {
+    console.log("[XL AI] /api/analyze-intensity completed", {
       rewriteStrength: rewriteStrength || "low",
-      analysis: payload.analysis,
-      coaching: payload.coaching,
       adaptiveThreshold,
-      metrics
+      metricSampleSize: metrics && metrics.sampleSize,
     });
     res.json(hardenContract("analyzeIntensity", payload, { route: "/api/analyze-intensity" }));
   } catch (err) {
